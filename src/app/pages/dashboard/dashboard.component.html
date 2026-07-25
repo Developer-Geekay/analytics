@@ -1,0 +1,1214 @@
+<div class="app-container">
+
+  <!-- Toast Notification Overlay -->
+  @if (analyticsService.toastMessage(); as toast) {
+    <div class="toast-floating-container"
+         [ngClass]="{
+           'toast-success': toast.type === 'success',
+           'toast-error': toast.type === 'error',
+           'toast-info': toast.type === 'info'
+         }">
+      <mat-icon>{{ toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info' }}</mat-icon>
+      <span>{{ toast.text }}</span>
+    </div>
+  }
+
+  <!-- Top Navigation Header Bar -->
+  <mat-toolbar class="app-toolbar">
+    <div class="app-header-content">
+
+      <!-- Logo & Brand Title -->
+      <div class="app-brand">
+        <div class="brand-icon-box" style="background: #36c5ff; border-radius: 12px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 100 100" width="24" height="24">
+            <path d="M 24 22 Q 24 26 20 26 Q 24 26 24 30 Q 24 26 28 26 Q 24 26 24 22 Z" fill="#ffffff"/>
+            <path d="M 45 12 Q 45 18 39 18 Q 45 18 45 24 Q 45 18 51 18 Q 45 18 45 12 Z" fill="#ffffff"/>
+            <path d="M 18 70 L 44 44 L 64 60 L 84 38" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="18" cy="70" r="5.5" fill="#ffffff"/>
+            <circle cx="44" cy="44" r="5.5" fill="#ffffff"/>
+            <circle cx="64" cy="60" r="5.5" fill="#ffffff"/>
+            <circle cx="84" cy="38" r="5.5" fill="#ffffff"/>
+          </svg>
+        </div>
+        <span class="brand-title">Analytics</span>
+      </div>
+
+      <!-- Top Right Navigation Menu (Only when Authenticated) -->
+      <div class="header-right-actions">
+        @if (authService.isAuthenticated()) {
+          <nav class="header-nav-links" aria-label="Main Navigation">
+            <button mat-button [class.nav-link-active]="mainNav() === 'dashboard'" (click)="setMainNav('dashboard')">
+              <mat-icon>dashboard</mat-icon> Dashboard
+            </button>
+            <button mat-button [class.nav-link-active]="mainNav() === 'apps'" (click)="setMainNav('apps')">
+              <mat-icon>apps</mat-icon> Apps & Integration
+            </button>
+            <button mat-button [class.nav-link-active]="mainNav() === 'settings'" (click)="setMainNav('settings')">
+              <mat-icon>settings</mat-icon> Settings
+            </button>
+            <button mat-button [class.nav-link-active]="mainNav() === 'docs'" (click)="setMainNav('docs')">
+              <mat-icon>auto_stories</mat-icon> Documentation
+            </button>
+          </nav>
+
+          <span class="user-profile-badge">
+            <mat-icon>admin_panel_settings</mat-icon>
+            {{ authService.currentUser()?.username || 'admin' }}
+          </span>
+
+          <button mat-icon-button (click)="performLogout()" matTooltip="Sign Out Admin">
+            <mat-icon>logout</mat-icon>
+          </button>
+        }
+
+        <!-- Theme Switcher -->
+        <button mat-icon-button (click)="toggleTheme()" [matTooltip]="currentTheme() === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+          <mat-icon>{{ currentTheme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+      </div>
+
+    </div>
+  </mat-toolbar>
+
+  <!-- Main Container -->
+  <main class="app-main-content">
+
+    @if (!authService.isAuthenticated()) {
+
+      <!-- LOGIN VIEW (UNAUTHENTICATED) -->
+      <div class="login-page-wrapper">
+        <mat-card class="login-card-dialog">
+
+          <div class="login-header-box">
+            <div class="login-icon-badge">
+              <mat-icon>shield</mat-icon>
+            </div>
+            <h2 class="login-title">Analytics Admin Portal</h2>
+            <p class="login-subtitle">Sign in with administrator credentials to access multi-tenant traffic analytics and app management.</p>
+          </div>
+
+          @if (authService.loginError(); as err) {
+            <div class="login-error-alert">
+              <mat-icon color="warn">error</mat-icon>
+              <span>{{ err }}</span>
+            </div>
+          }
+
+          <form (submit)="$event.preventDefault(); performLogin()">
+            <mat-form-field appearance="outline" style="width: 100%; margin-bottom: 12px;">
+              <mat-label>Admin Username</mat-label>
+              <input matInput [ngModel]="loginUsername()" (ngModelChange)="loginUsername.set($event)" name="username" placeholder="Username" required>
+              <mat-icon matPrefix>person</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" style="width: 100%; margin-bottom: 20px;">
+              <mat-label>Password</mat-label>
+              <input matInput [type]="hidePassword() ? 'password' : 'text'" [ngModel]="loginPassword()" (ngModelChange)="loginPassword.set($event)" name="password" placeholder="Password" required>
+              <mat-icon matPrefix>lock</mat-icon>
+              <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())" [attr.aria-label]="'Hide password'">
+                <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" type="submit" class="login-submit-btn" [disabled]="authService.isLoggingIn()">
+              @if (authService.isLoggingIn()) {
+                <mat-spinner diameter="20" style="margin: 0 auto;"></mat-spinner>
+              } @else {
+                <div class="btn-flex-content">
+                  <mat-icon>login</mat-icon>
+                  <span>Sign In to Dashboard</span>
+                </div>
+              }
+            </button>
+          </form>
+
+        </mat-card>
+      </div>
+
+    } @else {
+
+      <!-- AUTHENTICATED ADMIN DASHBOARD -->
+
+      <!-- Error Alert -->
+      @if (analyticsService.error()) {
+        <mat-card class="kpi-card mb-4">
+          <mat-card-content class="kpi-header">
+            <div class="app-brand">
+              <mat-icon color="warn">warning</mat-icon>
+              <span>{{ analyticsService.error() }}</span>
+            </div>
+            <button mat-flat-button color="warn" (click)="loadData()">Retry Connection</button>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- Loading Screen -->
+      @if (analyticsService.isLoading() && !analyticsService.summary()) {
+        <div class="tab-content-container text-center">
+          <mat-spinner diameter="48" style="margin:0 auto;"></mat-spinner>
+          <p class="brand-subtitle mt-4">Synchronizing traffic metrics...</p>
+        </div>
+      } @else if (analyticsService.summary(); as summary) {
+
+        <!-- SECTION 1: DASHBOARD VIEW -->
+        @if (mainNav() === 'dashboard') {
+
+          <!-- Dashboard Control Bar -->
+          <mat-card class="control-bar-card">
+            <div class="control-bar-left">
+              <mat-form-field appearance="outline" class="control-bar-select">
+                <mat-label>Select App Tenant</mat-label>
+                <mat-select [ngModel]="analyticsService.selectedSiteId()" (ngModelChange)="onSiteChange($event)">
+                  <mat-option value="all">All Projects (Global)</mat-option>
+                  @for (site of analyticsService.summary()?.availableSites || []; track site) {
+                    <mat-option [value]="site">{{ site }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="control-bar-actions">
+              <button mat-stroked-button (click)="loadData()">
+                <mat-icon [class.animate-spin]="analyticsService.isLoading()">refresh</mat-icon> Refresh
+              </button>
+            </div>
+          </mat-card>
+
+          <!-- Top 4 KPI Cards Grid -->
+          <div class="kpi-card-grid">
+
+            <!-- Card 1: Total Visits -->
+            <mat-card class="kpi-card">
+              <mat-card-content>
+                <div class="kpi-header">
+                  <span class="kpi-label">Total Visits</span>
+                  <div class="kpi-icon-badge kpi-icon-badge-cyan">
+                    <mat-icon>visibility</mat-icon>
+                  </div>
+                </div>
+                <div class="kpi-value">{{ summary.totalVisits | number }}</div>
+                <p class="kpi-caption">All-time recorded page loads</p>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Card 2: Unique Visitors -->
+            <mat-card class="kpi-card">
+              <mat-card-content>
+                <div class="kpi-header">
+                  <span class="kpi-label">Unique IPs</span>
+                  <div class="kpi-icon-badge kpi-icon-badge-purple">
+                    <mat-icon>people</mat-icon>
+                  </div>
+                </div>
+                <div class="kpi-value">{{ summary.uniqueVisitors | number }}</div>
+                <p class="kpi-caption">Distinct visitor IP addresses</p>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Card 3: 24h Traffic -->
+            <mat-card class="kpi-card">
+              <mat-card-content>
+                <div class="kpi-header">
+                  <span class="kpi-label">24h Traffic</span>
+                  <div class="kpi-icon-badge kpi-icon-badge-emerald">
+                    <mat-icon>trending_up</mat-icon>
+                  </div>
+                </div>
+                <div class="kpi-value">{{ summary.todayVisits | number }}</div>
+                <p class="kpi-caption">Past 24 hours volume</p>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Card 4: Active Apps -->
+            <mat-card class="kpi-card">
+              <mat-card-content>
+                <div class="kpi-header">
+                  <span class="kpi-label">Active Apps</span>
+                  <div class="kpi-icon-badge kpi-icon-badge-amber">
+                    <mat-icon>apps</mat-icon>
+                  </div>
+                </div>
+                <div class="kpi-value">{{ (summary.availableSites || []).length }}</div>
+                <p class="kpi-caption">Registered tenant sites</p>
+              </mat-card-content>
+            </mat-card>
+
+          </div>
+
+          <!-- Dashboard Sub-Tabs Main Card Section -->
+          <div class="tab-section-card">
+            <mat-tab-group (selectedTabChange)="setTab(['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'overview' ? 'overview' : ['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'pages' ? 'pages' : ['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'acquisition' ? 'acquisition' : ['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'devices' ? 'devices' : 'feed')">
+
+              <!-- Overview Tab -->
+              <mat-tab label="Overview Summary">
+                <div class="tab-content-container">
+
+                  <div class="content-grid-2col">
+
+                    <!-- Top Visited Pages -->
+                    <div class="overview-metric-card">
+                      <div class="overview-card-header">
+                        <div class="kpi-icon-badge kpi-icon-badge-cyan">
+                          <mat-icon>description</mat-icon>
+                        </div>
+                        <h3 class="overview-card-title">Top Visited Pages</h3>
+                      </div>
+
+                      @for (page of summary.topPages; track page.path) {
+                        <div class="metric-row-item">
+                          <div class="metric-row-header">
+                            <code class="metric-path-code">{{ page.path }}</code>
+                            <span class="metric-count-text">{{ page.count }} {{ page.count === 1 ? 'visit' : 'visits' }}</span>
+                          </div>
+                          <div class="metric-progress-track">
+                            <div class="metric-progress-fill" [style.width.%]="(page.count / getMaxPageCount(summary.topPages)) * 100"></div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+
+                    <!-- Top Referrers -->
+                    <div class="overview-metric-card">
+                      <div class="overview-card-header">
+                        <div class="kpi-icon-badge kpi-icon-badge-purple">
+                          <mat-icon>link</mat-icon>
+                        </div>
+                        <h3 class="overview-card-title">Top Traffic Sources</h3>
+                      </div>
+
+                      @for (ref of summary.topReferrers || []; track ref.referrer) {
+                        <div class="metric-row-item">
+                          <div class="metric-row-header">
+                            <code class="metric-path-code">{{ ref.referrer || 'Direct / Bookmark' }}</code>
+                            <span class="metric-count-text">{{ ref.count }} {{ ref.count === 1 ? 'visit' : 'visits' }}</span>
+                          </div>
+                          <div class="metric-progress-track">
+                            <div class="metric-progress-fill" [style.width.%]="(ref.count / getMaxReferrerCount(summary.topReferrers)) * 100"></div>
+                          </div>
+                        </div>
+                      }
+                    </div>
+
+                  </div>
+
+                </div>
+              </mat-tab>
+
+              <!-- Top Pages Tab -->
+              <mat-tab label="Page Analytics">
+                <div class="tab-content-container">
+                  <div class="data-table-container">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Page Path</th>
+                          <th>Total Pageviews</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (page of summary.topPages; track page.path) {
+                          <tr>
+                            <td><code>{{ page.path }}</code></td>
+                            <td><strong>{{ page.count }}</strong></td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </mat-tab>
+
+              <!-- Acquisition Tab -->
+              <mat-tab label="UTM & Acquisition">
+                <div class="tab-content-container">
+                  <div class="content-grid-2col">
+                    @for (source of summary.topReferrers || []; track source.referrer) {
+                      <div class="overview-metric-card">
+                        <div class="metric-row-header">
+                          <code class="metric-path-code">{{ source.referrer || 'Direct / Internal' }}</code>
+                          <strong class="metric-count-text">{{ source.count }} visits</strong>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </mat-tab>
+
+              <!-- Devices Tab -->
+              <mat-tab label="Devices & Browsers">
+                <div class="tab-content-container content-grid-2col">
+                  <div class="overview-metric-card">
+                    <div class="overview-card-header">
+                      <div class="kpi-icon-badge kpi-icon-badge-emerald">
+                        <mat-icon>devices</mat-icon>
+                      </div>
+                      <h3 class="overview-card-title">Device Types</h3>
+                    </div>
+
+                    <div class="metric-row-item">
+                      <div class="metric-row-header">
+                        <span>Desktop</span>
+                        <strong>{{ summary.deviceBreakdown.Desktop || 0 }}</strong>
+                      </div>
+                    </div>
+                    <div class="metric-row-item">
+                      <div class="metric-row-header">
+                        <span>Mobile</span>
+                        <strong>{{ summary.deviceBreakdown.Mobile || 0 }}</strong>
+                      </div>
+                    </div>
+                    <div class="metric-row-item">
+                      <div class="metric-row-header">
+                        <span>Tablet</span>
+                        <strong>{{ summary.deviceBreakdown.Tablet || 0 }}</strong>
+                      </div>
+                    </div>
+                    <div class="metric-row-item">
+                      <div class="metric-row-header">
+                        <span>Bot</span>
+                        <strong>{{ summary.deviceBreakdown.Bot || 0 }}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="overview-metric-card">
+                    <div class="overview-card-header">
+                      <div class="kpi-icon-badge kpi-icon-badge-amber">
+                        <mat-icon>web_asset</mat-icon>
+                      </div>
+                      <h3 class="overview-card-title">Browsers</h3>
+                    </div>
+
+                    @for (b of summary.browserBreakdown || []; track b.browser) {
+                      <div class="metric-row-item">
+                        <div class="metric-row-header">
+                          <span>{{ b.browser }}</span>
+                          <strong>{{ b.count }}</strong>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </mat-tab>
+
+              <!-- Full Activity History Tab -->
+              <mat-tab label="Full Activity Log">
+                <div class="tab-content-container">
+
+                  <!-- Search & Filters -->
+                  <div class="control-bar-card">
+                    <div class="control-bar-left">
+                      <mat-form-field appearance="outline" class="control-bar-select">
+                        <mat-label>Search logs</mat-label>
+                        <input matInput [ngModel]="searchQuery()" (ngModelChange)="onSearchChange($event)" placeholder="Search URL, IP, or path...">
+                        <mat-icon matSuffix>search</mat-icon>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="control-bar-actions">
+                      <mat-form-field appearance="outline" class="control-bar-select">
+                        <mat-label>Device Filter</mat-label>
+                        <mat-select [ngModel]="deviceFilter()" (ngModelChange)="onDeviceFilterChange($event)">
+                          <mat-option value="all">All Devices</mat-option>
+                          <mat-option value="desktop">Desktop</mat-option>
+                          <mat-option value="mobile">Mobile</mat-option>
+                          <mat-option value="tablet">Tablet</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                  </div>
+
+                  <!-- Table -->
+                  <div class="data-table-container">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Local Timestamp</th>
+                          <th>App Tenant</th>
+                          <th>Page Path</th>
+                          <th>Device / OS</th>
+                          <th>Visitor IP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (visit of historyVisits(); track visit._id) {
+                          <tr>
+                            <td><code>{{ formatDate(visit.timestamp) }}</code></td>
+                            <td><strong>{{ visit.siteId }}</strong></td>
+                            <td><code>{{ visit.path }}</code></td>
+                            <td>{{ visit.deviceType }} ({{ visit.browser }})</td>
+                            <td><code>{{ visit.ip }}</code></td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Pagination Footer -->
+                  <div class="table-pagination-footer">
+                    <span>Showing Page {{ historyPage() }} of {{ historyTotalPages() }} ({{ historyTotalCount() }} total visits)</span>
+                    <div class="control-bar-actions">
+                      <button mat-stroked-button [disabled]="historyPage() <= 1" (click)="goToPage(historyPage() - 1)">Previous</button>
+                      <button mat-stroked-button [disabled]="historyPage() >= historyTotalPages()" (click)="goToPage(historyPage() + 1)">Next</button>
+                    </div>
+                  </div>
+
+                </div>
+              </mat-tab>
+
+            </mat-tab-group>
+          </div>
+
+        }
+
+        <!-- SECTION 2: APPS & INTEGRATION VIEW -->
+        @if (mainNav() === 'apps') {
+
+          <div>
+
+            <!-- Header & Add Button -->
+            <div class="control-bar-card">
+              <div>
+                <h2 class="brand-title">App & Multi-Tenant Management</h2>
+              </div>
+              <div class="control-bar-actions">
+                <a mat-stroked-button href="/sdk/analytics.js" download="analytics.js">
+                  <mat-icon>download</mat-icon> Download JS Library
+                </a>
+                <button mat-flat-button color="primary" (click)="openRegisterModal()">
+                  <mat-icon>add</mat-icon> Register New App
+                </button>
+              </div>
+            </div>
+
+            <!-- Apps Grid -->
+            <div class="apps-grid-container">
+              @for (app of analyticsService.registeredApps(); track app.siteId) {
+                <mat-card class="app-card" [class.app-card-paused]="app.status === 'paused'" appearance="outlined">
+                  
+                  <!-- Custom Clean App Card Header Layout -->
+                  <div class="app-card-header-custom">
+                    <div class="app-card-top-row">
+                      <div class="app-card-title-box">
+                        <div class="kpi-icon-badge kpi-icon-badge-cyan">
+                          <mat-icon>web</mat-icon>
+                        </div>
+                        <h3 class="app-title-text">{{ app.name }}</h3>
+                      </div>
+
+                      <mat-slide-toggle
+                        [checked]="app.status !== 'paused'"
+                        (change)="toggleAppStatus(app)"
+                        color="primary">
+                        <span class="app-status-badge" [class.paused]="app.status === 'paused'">
+                          {{ app.status === 'paused' ? 'Paused' : 'Active' }}
+                        </span>
+                      </mat-slide-toggle>
+                    </div>
+
+                    <div class="app-card-tenant-id-row">
+                      <span class="tenant-id-label">TENANT ID:</span>
+                      <code class="tenant-id-code" (click)="copyToClipboard(app.siteId, 'Tenant ID copied')" matTooltip="Click to copy Tenant ID">
+                        {{ app.siteId }}
+                      </code>
+                    </div>
+                  </div>
+
+                  <mat-card-content style="margin-top: 8px;">
+                    <p class="brand-subtitle" style="margin-bottom: 8px;">{{ app.description || 'No description provided.' }}</p>
+                    <code>{{ app.domain || 'All Domains' }}</code>
+                  </mat-card-content>
+
+                  <mat-card-actions class="app-card-actions">
+                    <button mat-flat-button color="accent" class="btn-tracking-code" (click)="openSnippetModal(app.siteId)">
+                      <mat-icon>code</mat-icon> Get Tracking Code
+                    </button>
+                    <div class="app-icon-actions">
+                      <button mat-icon-button (click)="openRegisterModal(app)" matTooltip="Edit App">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      @if (app.isRegistered) {
+                        <button mat-icon-button color="warn" (click)="promptDeleteApp(app)" matTooltip="Unregister App">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      }
+                    </div>
+                  </mat-card-actions>
+                </mat-card>
+              }
+            </div>
+
+          </div>
+
+        }
+
+        <!-- SECTION 3: SETTINGS VIEW -->
+        @if (mainNav() === 'settings') {
+
+          <div>
+
+            <!-- Settings Header Control Bar -->
+            <div class="control-bar-card">
+              <div>
+                <h2 class="brand-title">Platform Settings & System Maintenance</h2>
+                <p class="brand-subtitle" style="margin-top: 4px;">Manage database backups, import external datasets, monitor MongoDB server health, and view system specifications.</p>
+                
+                @if (systemInfo(); as sys) {
+                  <div class="settings-hero-chips">
+                    <span class="spec-chip chip-emerald">
+                      <span class="status-indicator-dot online"></span> MongoDB Connected
+                    </span>
+                    <span class="spec-chip chip-cyan">
+                      <mat-icon style="font-size:14px; width:14px; height:14px;">storage</mat-icon>
+                      {{ sys.collectionsCount || 2 }} Collections ({{ sys.totalDocuments | number }} Docs)
+                    </span>
+                    <span class="spec-chip chip-purple">
+                      <mat-icon style="font-size:14px; width:14px; height:14px;">memory</mat-icon>
+                      Node.js {{ sys.nodeVersion }}
+                    </span>
+                  </div>
+                }
+              </div>
+              <div class="control-bar-actions">
+                <button mat-stroked-button (click)="loadSystemInfo()">
+                  <mat-icon>refresh</mat-icon> Refresh Health
+                </button>
+              </div>
+            </div>
+
+            <!-- Clean 3-Card Grid -->
+            <div class="content-grid-3col">
+
+              <!-- Card 1: Data Backup & Export -->
+              <mat-card class="kpi-card">
+                <div class="overview-card-header">
+                  <div class="kpi-icon-badge kpi-icon-badge-cyan">
+                    <mat-icon>download</mat-icon>
+                  </div>
+                  <h3 class="overview-card-title">Data Backup & Export</h3>
+                </div>
+                <mat-card-content style="margin-top: 12px;">
+                  <p class="brand-subtitle" style="margin-bottom: 16px;">Export all recorded page visit logs from MongoDB into JSON or CSV files for archival and offline analytics.</p>
+                  <div class="control-bar-actions">
+                    <a mat-flat-button color="primary" href="/api/admin/export?format=json" download="analytics_export.json">
+                      <mat-icon>download</mat-icon> Export JSON Backup
+                    </a>
+                    <a mat-stroked-button href="/api/admin/export?format=csv" download="analytics_export.csv">
+                      <mat-icon>table_chart</mat-icon> Export CSV
+                    </a>
+                  </div>
+                </mat-card-content>
+              </mat-card>
+
+              <!-- Card 2: Data Import & Restore -->
+              <mat-card class="kpi-card">
+                <div class="overview-card-header">
+                  <div class="kpi-icon-badge kpi-icon-badge-emerald">
+                    <mat-icon>upload_file</mat-icon>
+                  </div>
+                  <h3 class="overview-card-title">Data Import & Restore</h3>
+                </div>
+                <mat-card-content style="margin-top: 12px;">
+                  <p class="brand-subtitle" style="margin-bottom: 16px;">Import external or backup JSON visit records into your active MongoDB database cluster.</p>
+
+                  <input type="file" #importFileInput accept=".json" (change)="onImportFileSelected($event)" style="display: none;">
+
+                  @if (importJsonData(); as dataToImport) {
+                    <div class="docs-alert-note" style="margin-bottom: 16px;">
+                      <mat-icon color="primary">description</mat-icon>
+                      <div style="flex: 1;">
+                        <strong>Ready to Import:</strong> <code>{{ importFileName() }}</code> ({{ importFileCount() | number }} visit records)
+                      </div>
+                    </div>
+
+                    <div class="control-bar-actions">
+                      <button mat-flat-button color="primary" (click)="performImport()" [disabled]="isImporting()">
+                        @if (isImporting()) {
+                          <mat-spinner diameter="20" style="margin: 0 auto;"></mat-spinner>
+                        } @else {
+                          <ng-container>
+                            <mat-icon>cloud_upload</mat-icon> Confirm & Import {{ importFileCount() | number }} Visits
+                          </ng-container>
+                        }
+                      </button>
+                      <button mat-button (click)="cancelImport()" [disabled]="isImporting()">Cancel</button>
+                    </div>
+                  } @else {
+                    <div class="import-dropzone" (click)="importFileInput.click()">
+                      <mat-icon class="dropzone-icon">cloud_upload</mat-icon>
+                      <h4 class="dropzone-title">Click or Drop JSON Backup File Here</h4>
+                      <p class="dropzone-subtitle">Select a JSON export file to restore visit records to MongoDB</p>
+                    </div>
+                  }
+                </mat-card-content>
+              </mat-card>
+
+              <!-- Card 3: Danger Zone & Maintenance -->
+              <mat-card class="kpi-card card-danger-accent">
+                <div class="overview-card-header">
+                  <div class="kpi-icon-badge kpi-icon-badge-amber" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">
+                    <mat-icon color="warn">warning</mat-icon>
+                  </div>
+                  <h3 class="overview-card-title" style="color: #ef4444;">Danger Zone & Maintenance</h3>
+                </div>
+                <mat-card-content style="margin-top: 12px;">
+                  <p class="brand-subtitle" style="margin-bottom: 16px;">Permanently purge recorded page visit logs from your MongoDB database. This action cannot be undone.</p>
+                  <button mat-flat-button color="warn" (click)="openClearModal()">
+                    <mat-icon>delete_forever</mat-icon> Clear All Visit Logs
+                  </button>
+                </mat-card-content>
+              </mat-card>
+
+            </div>
+
+          </div>
+
+        }
+
+        <!-- SECTION 4: AUTHENTIC DEVELOPER DOCUMENTATION PORTAL VIEW -->
+        @if (mainNav() === 'docs') {
+
+          <div class="docs-portal-layout">
+
+            <!-- Left Sidebar Navigation -->
+            <aside class="docs-sidebar-card">
+
+              <div class="docs-sidebar-group">
+                <div class="docs-sidebar-header">GETTING STARTED</div>
+                <div class="docs-sidebar-nav">
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'quickstart'" (click)="docsSection.set('quickstart')">
+                    <mat-icon>play_circle</mat-icon> HTML Quick Start
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'download-sdk'" (click)="docsSection.set('download-sdk')">
+                    <mat-icon>download</mat-icon> Download SDK JS
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'sdk-config'" (click)="docsSection.set('sdk-config')">
+                    <mat-icon>settings_suggest</mat-icon> SDK Config
+                  </div>
+                </div>
+              </div>
+
+              <div class="docs-sidebar-group">
+                <div class="docs-sidebar-header">FRAMEWORKS</div>
+                <div class="docs-sidebar-nav">
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'react'" (click)="docsSection.set('react')">
+                    <mat-icon>code</mat-icon> React Integration
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'nextjs'" (click)="docsSection.set('nextjs')">
+                    <mat-icon>layers</mat-icon> Next.js (App Router)
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'angular'" (click)="docsSection.set('angular')">
+                    <mat-icon>extension</mat-icon> Angular Service
+                  </div>
+                </div>
+              </div>
+
+              <div class="docs-sidebar-group">
+                <div class="docs-sidebar-header">REST API REFERENCE</div>
+                <div class="docs-sidebar-nav">
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-beacon'" (click)="docsSection.set('api-beacon')">
+                    <mat-icon>send</mat-icon> POST /visit
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-query'" (click)="docsSection.set('api-query')">
+                    <mat-icon>analytics</mat-icon> GET /analytics
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-history'" (click)="docsSection.set('api-history')">
+                    <mat-icon>history</mat-icon> GET /history
+                  </div>
+                </div>
+              </div>
+
+              <div class="docs-sidebar-group">
+                <div class="docs-sidebar-header">DEPLOYMENT & HOSTING</div>
+                <div class="docs-sidebar-nav">
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'deploy-docker'" (click)="docsSection.set('deploy-docker')">
+                    <mat-icon>view_in_ar</mat-icon> Docker & Compose
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'deploy-pm2'" (click)="docsSection.set('deploy-pm2')">
+                    <mat-icon>dns</mat-icon> PM2 & Production
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'deploy-nginx'" (click)="docsSection.set('deploy-nginx')">
+                    <mat-icon>security</mat-icon> Nginx & Reverse Proxy
+                  </div>
+                </div>
+              </div>
+
+            </aside>
+
+            <!-- Right Side Article Content Body -->
+            <main class="docs-article-card">
+
+              @if (docsSection() === 'quickstart') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">HTML Quick Start Guide</h1>
+                    <p class="docs-article-lead">Embed our lightweight tracking beacon into any static or dynamic website in under 2 minutes.</p>
+                  </header>
+
+                  <div class="docs-alert-note">
+                    <mat-icon>info</mat-icon>
+                    <div>
+                      <strong>Multi-Tenant Auto Detection:</strong> Copy your auto-generated UUID v4 Tenant ID from <em>Apps & Integration</em>.
+                    </div>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Embed Snippet</h3>
+                  <p class="brand-subtitle" style="margin-bottom: 12px;">Paste this script right before the closing <code>&lt;/head&gt;</code> tag of your page HTML:</p>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">HTML / SCRIPT</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getTrackingScriptSnippet('YOUR_APP_TENANT_ID'), 'Snippet copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getTrackingScriptSnippet('YOUR_APP_TENANT_ID') }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'download-sdk') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">SDK Library Download & Self-Hosting Hub</h1>
+                    <p class="docs-article-lead">Download the production-ready <code>analytics.js</code> JavaScript library for offline development, local hosting, or custom CDN distribution.</p>
+                  </header>
+
+                  <!-- Package Download Card -->
+                  <div class="overview-metric-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                    <div>
+                      <h3 class="overview-card-title">Production JavaScript Bundle (analytics.js)</h3>
+                      <p class="brand-subtitle" style="margin: 4px 0 0 0;">Zero-dependency tracking beacon library (2.6 KB minified).</p>
+                    </div>
+                    <a mat-flat-button color="primary" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download analytics.js (2.6 KB)
+                    </a>
+                  </div>
+
+                  <!-- Technical Specs -->
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Technical Specifications</h3>
+                  <div class="data-table-container" style="margin-bottom: 24px;">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Specification</th>
+                          <th>Value</th>
+                          <th>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Bundle Size</td>
+                          <td><code>2.6 KB</code></td>
+                          <td>Minified, zero runtime dependencies.</td>
+                        </tr>
+                        <tr>
+                          <td>Transport Protocol</td>
+                          <td><code>navigator.sendBeacon()</code></td>
+                          <td>Falls back to <code>fetch(..., &#123; keepalive: true &#125;)</code>.</td>
+                        </tr>
+                        <tr>
+                          <td>Browser Compatibility</td>
+                          <td>All Modern Browsers</td>
+                          <td>Chrome, Safari, Firefox, Edge, iOS & Android.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Self Hosting Guide -->
+                  <h3 class="overview-card-title mt-6">Self-Hosting & Custom CDN Instructions</h3>
+                  <p class="brand-subtitle" style="margin-bottom: 12px;">
+                    When serving <code>analytics.js</code> from your own domain (e.g. <code>https://cdn.yourdomain.com/js/analytics.js</code>), specify the <code>data-host</code> attribute so tracking beacons reach your analytics server:
+                  </p>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">HTML / SELF-HOSTED CDN</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard('<script src=&quot;https://cdn.yourdomain.com/js/analytics.js&quot; data-site-id=&quot;YOUR_TENANT_ID&quot; data-host=&quot;http://localhost:3000&quot; async></script>', 'Snippet copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>&lt;script src="https://cdn.yourdomain.com/js/analytics.js" data-site-id="YOUR_TENANT_ID" data-host="http://localhost:3000" async&gt;&lt;/script&gt;</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'sdk-config') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">SDK Configuration Attributes</h1>
+                    <p class="docs-article-lead">Customize tracking behavior using <code>data-*</code> HTML attributes on the script tag.</p>
+                  </header>
+
+                  <div class="data-table-container">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Attribute</th>
+                          <th>Type</th>
+                          <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>data-site-id</code></td>
+                          <td>String (Required)</td>
+                          <td>Your auto-generated UUID v4 App Tenant ID.</td>
+                        </tr>
+                        <tr>
+                          <td><code>data-host</code></td>
+                          <td>String (Optional)</td>
+                          <td>Analytics server endpoint URL (defaults to script origin).</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'react') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">React Integration Guide</h1>
+                    <p class="docs-article-lead">Track Single Page Application (SPA) route transitions in React Router automatically.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">TSX / REACT</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getReactSnippet(), 'React code copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getReactSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'nextjs') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Next.js (App Router) Integration</h1>
+                    <p class="docs-article-lead">Integrate into Next.js 13+ App Router using Next.js <code>Script</code> component.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">TSX / NEXT.JS</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getNextjsSnippet(), 'Next.js code copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getNextjsSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'angular') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Angular Integration Service</h1>
+                    <p class="docs-article-lead">Track Angular router events using a lightweight injectable tracking service.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">TYPESCRIPT / ANGULAR</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getAngularSnippet(), 'Angular code copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getAngularSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-beacon') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">POST /api/analytics/visit</h1>
+                    <p class="docs-article-lead">Ingestion beacon endpoint for recording real-time page visit data.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getCurlSnippet('YOUR_TENANT_ID'), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getCurlSnippet('YOUR_TENANT_ID') }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-query') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">GET /api/admin/analytics</h1>
+                    <p class="docs-article-lead">Query aggregated traffic totals, top pages, UTM campaigns, and device breakdowns.</p>
+                  </header>
+
+                  <div class="docs-alert-note">
+                    <mat-icon>code</mat-icon>
+                    <div><strong>Query Parameters:</strong> Pass <code>siteId=YOUR_UUID</code> to filter single tenant metrics.</div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-history') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">GET /api/admin/history</h1>
+                    <p class="docs-article-lead">Query full paginated visit logs with search & device filter support.</p>
+                  </header>
+                </article>
+              }
+
+              @if (docsSection() === 'deploy-docker') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Docker & Docker Compose Deployment Guide</h1>
+                    <p class="docs-article-lead">Containerize the entire Analytics platform with Node.js Express ingestion server, Angular frontend, and MongoDB database.</p>
+                  </header>
+
+                  <h3 class="overview-card-title mt-6">Production Dockerfile</h3>
+                  <p class="brand-subtitle" style="margin-bottom: 12px;">Multi-stage Dockerfile that builds the Angular frontend bundle and packages the Node.js API server:</p>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">DOCKERFILE</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getDockerSnippet(), 'Dockerfile copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getDockerSnippet() }}</pre>
+                    </div>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Docker Compose Configuration</h3>
+                  <p class="brand-subtitle" style="margin-bottom: 12px;">Spin up the Analytics App and a persistent MongoDB database cluster with a single command:</p>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">YAML / DOCKER COMPOSE</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getDockerComposeSnippet(), 'Docker Compose copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getDockerComposeSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'deploy-pm2') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">PM2 & Node.js Production Setup</h1>
+                    <p class="docs-article-lead">Run the Analytics server on Ubuntu/Debian/macOS using PM2 process manager for automatic process supervision and restart on boot.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / PM2</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getPm2Snippet(), 'PM2 guide copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getPm2Snippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'deploy-nginx') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Nginx Reverse Proxy & SSL Setup</h1>
+                    <p class="docs-article-lead">Configure Nginx as a reverse proxy with Let's Encrypt SSL/TLS termination for HTTPS traffic.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">NGINX CONFIG</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getNginxSnippet(), 'Nginx config copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getNginxSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+            </main>
+
+          </div>
+
+        }
+
+      }
+    }
+  </main>
+</div>
+
+<!-- Modal 1: Get Tracking Code Dialog -->
+@if (showSnippetModal()) {
+  <div class="modal-backdrop-overlay">
+    <mat-card class="modal-dialog-card">
+      <mat-card-header class="kpi-header">
+        <mat-card-title>Integration Code & SDK Generator</mat-card-title>
+        <button mat-icon-button (click)="closeSnippetModal()"><mat-icon>close</mat-icon></button>
+      </mat-card-header>
+
+      <mat-card-content style="margin-top: 16px;">
+        <mat-button-toggle-group [value]="snippetType()" (change)="snippetType.set($event.value)">
+          <mat-button-toggle value="script">HTML &lt;script&gt; Tag</mat-button-toggle>
+          <mat-button-toggle value="npm">JavaScript / NPM</mat-button-toggle>
+          <mat-button-toggle value="curl">cURL / REST API</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <div class="code-box-wrapper">
+          <div class="code-box-header">
+            <span class="code-lang-label">{{ snippetType().toUpperCase() }}</span>
+            <div class="control-bar-actions">
+              <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                <mat-icon>download</mat-icon> Download JS File
+              </a>
+              <button mat-button class="code-copy-btn"
+                      (click)="copyToClipboard(
+                        snippetType() === 'script' ? getTrackingScriptSnippet(selectedAppForSnippet()) :
+                        snippetType() === 'npm' ? getNpmSnippet(selectedAppForSnippet()) :
+                        getCurlSnippet(selectedAppForSnippet()),
+                        'Tracking code copied!'
+                      )">
+                <mat-icon>content_copy</mat-icon> Copy Code
+              </button>
+            </div>
+          </div>
+          <div class="code-box-container">
+            <pre>
+@if (snippetType() === 'script') {
+{{ getTrackingScriptSnippet(selectedAppForSnippet()) }}
+} @else if (snippetType() === 'npm') {
+{{ getNpmSnippet(selectedAppForSnippet()) }}
+} @else {
+{{ getCurlSnippet(selectedAppForSnippet()) }}
+}
+            </pre>
+          </div>
+        </div>
+      </mat-card-content>
+
+      <mat-card-actions class="app-card-actions">
+        <span></span>
+        <button mat-stroked-button (click)="closeSnippetModal()">Close</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Modal 2: Register / Edit App Modal -->
+@if (showRegisterAppModal()) {
+  <div class="modal-backdrop-overlay">
+    <mat-card class="modal-dialog-card">
+      <mat-card-header class="kpi-header">
+        <mat-card-title>{{ isEditMode() ? 'Edit Application Tenant' : 'Register Application Tenant' }}</mat-card-title>
+        <button mat-icon-button (click)="closeRegisterModal()"><mat-icon>close</mat-icon></button>
+      </mat-card-header>
+
+      <mat-card-content style="margin-top: 16px;">
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>{{ isEditMode() ? 'App Tenant ID (Locked in Edit Mode)' : 'App Tenant ID (Auto UUID v4)' }}</mat-label>
+          <input matInput [ngModel]="newAppSiteId()" (ngModelChange)="newAppSiteId.set($event)" [readonly]="isEditMode()">
+          @if (!isEditMode()) {
+            <button mat-icon-button matSuffix (click)="newAppSiteId.set(generateUuidV4())" matTooltip="Generate New UUID">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>App Display Name</mat-label>
+          <input matInput [ngModel]="newAppName()" (ngModelChange)="newAppName.set($event)" placeholder="e.g. HostPanel Dashboard">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Target Domain URL</mat-label>
+          <input matInput [ngModel]="newAppDomain()" (ngModelChange)="newAppDomain.set($event)" placeholder="e.g. https://hostpanel.com">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Description</mat-label>
+          <textarea matInput [ngModel]="newAppDescription()" (ngModelChange)="newAppDescription.set($event)" rows="2"></textarea>
+        </mat-form-field>
+      </mat-card-content>
+
+      <mat-card-actions class="control-bar-actions" style="justify-content: flex-end;">
+        <button mat-button (click)="closeRegisterModal()">Cancel</button>
+        <button mat-flat-button color="primary" (click)="saveAppRegistration()">Save App Registration</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Modal 3: Delete App Confirmation Modal -->
+@if (showDeleteAppModal() && appToDelete(); as targetApp) {
+  <div class="modal-backdrop-overlay">
+    <mat-card class="modal-dialog-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar color="warn">warning</mat-icon>
+        <mat-card-title>Unregister App Tenant</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content style="margin-top: 16px;">
+        <p>Are you sure you want to unregister <strong>{{ targetApp.name }}</strong> (ID: <code>{{ targetApp.siteId }}</code>)?</p>
+        <p class="brand-subtitle">Recorded traffic logs will remain stored under global filters.</p>
+      </mat-card-content>
+
+      <mat-card-actions class="control-bar-actions" style="justify-content: flex-end;">
+        <button mat-button (click)="closeDeleteAppModal()">Cancel</button>
+        <button mat-flat-button color="warn" (click)="confirmDeleteApp()">Remove App Tenant</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
+
+<!-- Modal 4: Clear Logs Confirmation Modal -->
+@if (showClearModal()) {
+  <div class="modal-backdrop-overlay">
+    <mat-card class="modal-dialog-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar color="warn">delete_forever</mat-icon>
+        <mat-card-title>Clear All Visit Logs</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content style="margin-top: 16px;">
+        <p>This action will permanently purge all page visit records from MongoDB.</p>
+      </mat-card-content>
+
+      <mat-card-actions class="control-bar-actions" style="justify-content: flex-end;">
+        <button mat-button (click)="closeClearModal()">Cancel</button>
+        <button mat-flat-button color="warn" (click)="confirmClearLogs()">Purge Logs</button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}

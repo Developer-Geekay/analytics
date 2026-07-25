@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Rounded Sky Blue Squircle Background -->
+  <rect width="100" height="100" rx="28" fill="#36c5ff"/>
+
+  <!-- Small 4-point Star (Left) -->
+  <path d="M 24 22 Q 24 26 20 26 Q 24 26 24 30 Q 24 26 28 26 Q 24 26 24 22 Z" fill="#ffffff"/>
+
+  <!-- Large 4-point Star (Top Center) -->
+  <path d="M 45 12 Q 45 18 39 18 Q 45 18 45 24 Q 45 18 51 18 Q 45 18 45 12 Z" fill="#ffffff"/>
+
+  <!-- Trend Line Path (4 nodes connected) -->
+  <path d="M 18 70 L 44 44 L 64 60 L 84 38" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 4 White Circles at Nodes -->
+  <circle cx="18" cy="70" r="5.5" fill="#ffffff"/>
+  <circle cx="44" cy="44" r="5.5" fill="#ffffff"/>
+  <circle cx="64" cy="60" r="5.5" fill="#ffffff"/>
+  <circle cx="84" cy="38" r="5.5" fill="#ffffff"/>
+</svg>

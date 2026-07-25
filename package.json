@@ -1,0 +1,47 @@
+{
+  "name": "analytics-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "dev": "concurrently \"node server.js\" \"ng serve --port 4200\"",
+    "server": "node server.js",
+    "client": "ng serve --port 4200",
+    "start": "node server.js",
+    "seed": "node seedData.js",
+    "build": "ng build && node scripts/after_prepare.js"
+  },
+  "dependencies": {
+    "@angular/animations": "^21.2.0",
+    "@angular/cdk": "^21.2.14",
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/material": "^21.2.14",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "^0.15.1"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.19",
+    "@angular/cli": "^21.2.19",
+    "@angular/compiler-cli": "^21.2.0",
+    "@tailwindcss/postcss": "^4.1.12",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.17.16",
+    "concurrently": "^9.1.2",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.12",
+    "typescript": "~5.9.2"
+  }
+}
