@@ -94,7 +94,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   newAppDomain = signal<string>('');
   newAppDescription = signal<string>('');
   selectedAppForSnippet = signal<string>('consoleapi-products');
-  snippetType = signal<'script' | 'npm' | 'curl'>('script');
+  snippetType = signal<'script' | 'npm' | 'react' | 'nextjs' | 'angular' | 'vue' | 'svelte' | 'curl'>('script');
 
   // Modals state
   showSnippetModal = signal<boolean>(false);
@@ -315,8 +315,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.autoRefreshTimer = null;
     }
   }
-
-
 
   getMaxPageCount(pages: { path: string; count: number }[] | undefined): number {
     if (!pages || pages.length === 0) return 1;
@@ -666,23 +664,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getTrackingScriptSnippet(siteId: string): string {
     const cleanId = siteId || 'your-app-id';
     const baseUrl = this.getBaseUrl();
-    return `<script src="${baseUrl}/sdk/analytics.js" data-site-id="${cleanId}" async></script>`;
+    return `<script src="${baseUrl}/sdk/analytics.js" data-site-id="${cleanId}" data-host="${baseUrl}" data-auto-track="true" async></script>`;
+  }
+
+  getProgrammaticJsApiSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
+    const baseUrl = this.getBaseUrl();
+    return `// 1. Programmatically initialize Analytics SDK
+window.AnalyticsSDK.init({
+  siteId: '${siteId}',
+  endpoint: '${baseUrl}/api/analytics/visit'
+});
+
+// 2. Manually track custom page view or virtual transition with payload data
+window.AnalyticsSDK.trackVisit('/dashboard/checkout', {
+  utm_source: 'newsletter',
+  utm_campaign: 'summer_sale_2026',
+  custom_tag: 'premium_user'
+});`;
   }
 
   getNpmSnippet(siteId: string): string {
     const cleanId = siteId || 'your-app-id';
     const baseUrl = this.getBaseUrl();
-    return `// Call in your app route change or page load handler
-fetch('${baseUrl}/api/analytics/visit', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
+    return `// Lightweight zero-dependency JS / Fetch Tracker
+export function trackPageView(path = window.location.pathname, customData = {}) {
+  const payload = {
     siteId: '${cleanId}',
-    path: window.location.pathname,
+    path: path,
     fullUrl: window.location.href,
-    referrer: document.referrer
-  })
-});`;
+    referrer: document.referrer || '',
+    ...customData
+  };
+
+  if (navigator.sendBeacon) {
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    navigator.sendBeacon('${baseUrl}/api/analytics/visit', blob);
+  } else {
+    fetch('${baseUrl}/api/analytics/visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(() => {});
+  }
+}`;
   }
 
   getCurlSnippet(siteId: string): string {
@@ -690,7 +715,15 @@ fetch('${baseUrl}/api/analytics/visit', {
     const baseUrl = this.getBaseUrl();
     return `curl -X POST "${baseUrl}/api/analytics/visit" \\
   -H "Content-Type: application/json" \\
-  -d '{"siteId":"${cleanId}","path":"/checkout","fullUrl":"https://myapp.com/checkout"}'`;
+  -d '{
+    "siteId": "${cleanId}",
+    "path": "/checkout",
+    "fullUrl": "https://myapp.com/checkout",
+    "referrer": "https://google.com",
+    "utm_source": "google",
+    "utm_medium": "cpc",
+    "utm_campaign": "search_promo"
+  }'`;
   }
 
   getReactSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
@@ -707,10 +740,11 @@ export function useAnalytics() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         siteId: '${siteId}',
-        path: location.pathname,
+        path: location.pathname + location.search,
         fullUrl: window.location.href,
         referrer: document.referrer
-      })
+      }),
+      keepalive: true
     }).catch(console.error);
   }, [location]);
 }`;
@@ -718,15 +752,27 @@ export function useAnalytics() {
 
   getNextjsSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `// app/layout.tsx or components/AnalyticsScript.tsx
+    return `// components/AnalyticsScript.tsx (Next.js 13+ App Router)
 'use client';
 import Script from 'next/script';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function AnalyticsScript() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).AnalyticsSDK) {
+      (window as any).AnalyticsSDK.trackVisit(pathname + (searchParams?.toString() ? '?' + searchParams.toString() : ''));
+    }
+  }, [pathname, searchParams]);
+
   return (
     <Script
       src="${baseUrl}/sdk/analytics.js"
       data-site-id="${siteId}"
+      data-host="${baseUrl}"
       strategy="afterInteractive"
     />
   );
@@ -758,6 +804,220 @@ export class AnalyticsTrackingService {
     });
   }
 }`;
+  }
+
+  getVueSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
+    const baseUrl = this.getBaseUrl();
+    return `// router/index.js or main.js (Vue 3 / Nuxt 3)
+import { useRouter } from 'vue-router';
+
+export function setupAnalytics(router) {
+  router.afterEach((to) => {
+    fetch('${baseUrl}/api/analytics/visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        siteId: '${siteId}',
+        path: to.fullPath,
+        fullUrl: window.location.origin + to.fullPath,
+        referrer: document.referrer
+      }),
+      keepalive: true
+    }).catch(() => {});
+  });
+}`;
+  }
+
+  getSvelteSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
+    const baseUrl = this.getBaseUrl();
+    return `<!-- +layout.svelte (SvelteKit) -->
+<script>
+  import { page } from '$app/stores';
+  import { browser } from '$app/environment';
+
+  $: if (browser && $page.url) {
+    fetch('${baseUrl}/api/analytics/visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        siteId: '${siteId}',
+        path: $page.url.pathname + $page.url.search,
+        fullUrl: $page.url.href,
+        referrer: document.referrer
+      }),
+      keepalive: true
+    }).catch(() => {});
+  }
+</script>`;
+  }
+
+  getNodeSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
+    const baseUrl = this.getBaseUrl();
+    return `// Express.js Server Middleware (Node.js)
+const analyticsMiddleware = (req, res, next) => {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/static')) {
+    fetch('${baseUrl}/api/analytics/visit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': req.headers['user-agent'] || '',
+        'X-Forwarded-For': req.ip
+      },
+      body: JSON.stringify({
+        siteId: '${siteId}',
+        path: req.originalUrl || req.path,
+        fullUrl: \`\${req.protocol}://\${req.get('host')}\${req.originalUrl}\`,
+        referrer: req.headers['referer'] || ''
+      })
+    }).catch(err => console.error('Analytics record error:', err));
+  }
+  next();
+};
+
+app.use(analyticsMiddleware);`;
+  }
+
+  getPythonSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
+    const baseUrl = this.getBaseUrl();
+    return `# Python Flask / FastAPI Integration
+import requests
+from flask import request
+
+def track_page_visit(path_override=None):
+    try:
+        payload = {
+            "siteId": "${siteId}",
+            "path": path_override or request.path,
+            "fullUrl": request.url,
+            "referrer": request.referrer or ""
+        }
+        headers = {
+            "User-Agent": request.headers.get("User-Agent", ""),
+            "X-Forwarded-For": request.remote_addr
+        }
+        requests.post("${baseUrl}/api/analytics/visit", json=payload, headers=headers, timeout=2)
+    except Exception as e:
+        print(f"Analytics dispatch error: {e}")`;
+  }
+
+  getApiBeaconSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
+    const baseUrl = this.getBaseUrl();
+    return `curl -X POST "${baseUrl}/api/analytics/visit" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "siteId": "${siteId}",
+    "path": "/products/laptop-pro",
+    "fullUrl": "https://mystore.com/products/laptop-pro?utm_source=newsletter&utm_medium=email",
+    "referrer": "https://google.com",
+    "utm_source": "newsletter",
+    "utm_medium": "email",
+    "utm_campaign": "summer_deal",
+    "utm_content": "hero_banner",
+    "utm_term": "laptops"
+  }'`;
+  }
+
+  getApiAnalyticsQuerySnippet(): string {
+    const baseUrl = this.getBaseUrl();
+    return `# Query Aggregated Analytics
+curl -X GET "${baseUrl}/api/admin/analytics?siteId=YOUR_APP_TENANT_ID&startDate=2026-01-01&endDate=2026-12-31" \\
+  -H "Authorization: Basic admin:admin123"
+
+# Response Schema:
+# {
+#   "success": true,
+#   "metrics": {
+#     "totalVisits": 1420,
+#     "genuineVisits": 1280,
+#     "botVisits": 90,
+#     "threatVisits": 50,
+#     "topPages": [{ "path": "/pricing", "count": 310 }],
+#     "deviceBreakdown": { "Desktop": 850, "Mobile": 500, "Tablet": 70 },
+#     "threatTypes": { "Vulnerability Probe": 35, "DDoS Burst": 15 },
+#     "utmCampaigns": [{ "campaign": "summer_deal", "count": 140 }]
+#   }
+# }`;
+  }
+
+  getApiHistoryQuerySnippet(): string {
+    const baseUrl = this.getBaseUrl();
+    return `# Query Paginated Raw Visit Logs
+curl -X GET "${baseUrl}/api/admin/history?siteId=YOUR_APP_TENANT_ID&page=1&limit=10&category=Threat&threatType=Vulnerability%20Probe" \\
+  -H "Authorization: Basic admin:admin123"
+
+# Response Schema:
+# {
+#   "success": true,
+#   "data": [
+#     {
+#       "_id": "66ac64d9f9a21b34c09231f2",
+#       "siteId": "consoleapi-products",
+#       "path": "/.env",
+#       "ip": "185.220.101.5",
+#       "country": "Germany",
+#       "deviceType": "Bot",
+#       "trafficCategory": "Threat",
+#       "threatType": "Vulnerability Probe",
+#       "threatSeverity": "Critical",
+#       "threatReason": "Probing sensitive environment variables (.env)",
+#       "timestamp": "2026-08-01T18:05:22.100Z"
+#     }
+#   ],
+#   "pagination": { "total": 45, "page": 1, "limit": 10, "totalPages": 5 }
+# }`;
+  }
+
+  getApiAppsSnippet(): string {
+    const baseUrl = this.getBaseUrl();
+    return `# 1. List Registered App Tenants
+curl -X GET "${baseUrl}/api/admin/apps" -H "Authorization: Basic admin:admin123"
+
+# 2. Register / Update App Tenant
+curl -X POST "${baseUrl}/api/admin/apps" \\
+  -H "Authorization: Basic admin:admin123" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "siteId": "my-tenant-uuid-1234",
+    "name": "E-Commerce Storefront",
+    "domain": "https://store.example.com",
+    "description": "Production store app"
+  }'
+
+# 3. Delete App Tenant
+curl -X DELETE "${baseUrl}/api/admin/apps/my-tenant-uuid-1234" -H "Authorization: Basic admin:admin123"`;
+  }
+
+  getApiExportImportSnippet(): string {
+    const baseUrl = this.getBaseUrl();
+    return `# 1. Export JSON Analytics Backup
+curl -X GET "${baseUrl}/api/admin/export?format=json&siteId=YOUR_TENANT_ID" \\
+  -H "Authorization: Basic admin:admin123" -o analytics_backup.json
+
+# 2. Restore / Import JSON Analytics Dataset
+curl -X POST "${baseUrl}/api/admin/import" \\
+  -H "Authorization: Basic admin:admin123" \\
+  -H "Content-Type: application/json" \\
+  -d '[
+    {
+      "siteId": "YOUR_TENANT_ID",
+      "path": "/dashboard",
+      "ip": "203.0.113.195",
+      "country": "United States",
+      "deviceType": "Desktop",
+      "browser": "Chrome",
+      "trafficCategory": "Genuine",
+      "timestamp": "2026-08-01T12:00:00.000Z"
+    }
+  ]'`;
+  }
+
+  getApiSystemSnippet(): string {
+    const baseUrl = this.getBaseUrl();
+    return `# Get System Health & MongoDB Cluster Specs
+curl -X GET "${baseUrl}/api/admin/system" -H "Authorization: Basic admin:admin123"
+
+# Purge All Visit Logs (Use with caution)
+curl -X DELETE "${baseUrl}/api/admin/clear" -H "Authorization: Basic admin:admin123"`;
   }
 
   getDockerSnippet(): string {
@@ -856,5 +1116,6 @@ server {
 }`;
   }
 }
+
 
 

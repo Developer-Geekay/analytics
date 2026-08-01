@@ -918,22 +918,34 @@
                     <mat-icon>download</mat-icon> Download SDK JS
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'sdk-config'" (click)="docsSection.set('sdk-config')">
-                    <mat-icon>settings_suggest</mat-icon> SDK Config
+                    <mat-icon>settings_suggest</mat-icon> SDK Config & API
                   </div>
                 </div>
               </div>
 
               <div class="docs-sidebar-group">
-                <div class="docs-sidebar-header">FRAMEWORKS</div>
+                <div class="docs-sidebar-header">FRAMEWORKS & LIBRARIES</div>
                 <div class="docs-sidebar-nav">
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'react'" (click)="docsSection.set('react')">
-                    <mat-icon>code</mat-icon> React Integration
+                    <mat-icon>code</mat-icon> React & React Router
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'nextjs'" (click)="docsSection.set('nextjs')">
                     <mat-icon>layers</mat-icon> Next.js (App Router)
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'angular'" (click)="docsSection.set('angular')">
                     <mat-icon>extension</mat-icon> Angular Service
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'vue'" (click)="docsSection.set('vue')">
+                    <mat-icon>widgets</mat-icon> Vue 3 / Nuxt
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'svelte'" (click)="docsSection.set('svelte')">
+                    <mat-icon>auto_awesome</mat-icon> Svelte / SvelteKit
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'nodejs'" (click)="docsSection.set('nodejs')">
+                    <mat-icon>terminal</mat-icon> Node.js / Express
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'python'" (click)="docsSection.set('python')">
+                    <mat-icon>memory</mat-icon> Python (Flask/Django)
                   </div>
                 </div>
               </div>
@@ -942,13 +954,34 @@
                 <div class="docs-sidebar-header">REST API REFERENCE</div>
                 <div class="docs-sidebar-nav">
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-beacon'" (click)="docsSection.set('api-beacon')">
-                    <mat-icon>send</mat-icon> POST /visit
+                    <mat-icon>send</mat-icon> POST /visit Beacon
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-query'" (click)="docsSection.set('api-query')">
                     <mat-icon>analytics</mat-icon> GET /analytics
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-history'" (click)="docsSection.set('api-history')">
                     <mat-icon>history</mat-icon> GET /history
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-apps'" (click)="docsSection.set('api-apps')">
+                    <mat-icon>apps</mat-icon> Tenant Apps API
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-export-import'" (click)="docsSection.set('api-export-import')">
+                    <mat-icon>sync</mat-icon> Export & Import API
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-system'" (click)="docsSection.set('api-system')">
+                    <mat-icon>dns</mat-icon> System & Clear API
+                  </div>
+                </div>
+              </div>
+
+              <div class="docs-sidebar-group">
+                <div class="docs-sidebar-header">FEATURES & SECURITY</div>
+                <div class="docs-sidebar-nav">
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'threat-engine'" (click)="docsSection.set('threat-engine')">
+                    <mat-icon>shield</mat-icon> Threat & Bot Engine
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'utm-tracking'" (click)="docsSection.set('utm-tracking')">
+                    <mat-icon>campaign</mat-icon> UTM & Attribution
                   </div>
                 </div>
               </div>
@@ -963,7 +996,10 @@
                     <mat-icon>dns</mat-icon> PM2 & Production
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'deploy-nginx'" (click)="docsSection.set('deploy-nginx')">
-                    <mat-icon>security</mat-icon> Nginx & Reverse Proxy
+                    <mat-icon>security</mat-icon> Nginx & SSL Proxy
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'env-vars'" (click)="docsSection.set('env-vars')">
+                    <mat-icon>tune</mat-icon> Environment (.env)
                   </div>
                 </div>
               </div>
@@ -1049,6 +1085,11 @@
                           <td>All Modern Browsers</td>
                           <td>Chrome, Safari, Firefox, Edge, iOS & Android.</td>
                         </tr>
+                        <tr>
+                          <td>SPA Navigation Tracking</td>
+                          <td>Automatic</td>
+                          <td>Hooks into <code>history.pushState</code> & <code>popstate</code> events.</td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -1076,11 +1117,12 @@
               @if (docsSection() === 'sdk-config') {
                 <article>
                   <header class="docs-article-header">
-                    <h1 class="docs-article-title">SDK Configuration Attributes</h1>
-                    <p class="docs-article-lead">Customize tracking behavior using <code>data-*</code> HTML attributes on the script tag.</p>
+                    <h1 class="docs-article-title">SDK Configuration & Programmatic API</h1>
+                    <p class="docs-article-lead">Customize tracking behavior using <code>data-*</code> HTML attributes or programmatically via the <code>window.AnalyticsSDK</code> global object.</p>
                   </header>
 
-                  <div class="data-table-container">
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Script Tag HTML Attributes</h3>
+                  <div class="data-table-container" style="margin-bottom: 24px;">
                     <table class="custom-data-table">
                       <thead>
                         <tr>
@@ -1098,10 +1140,35 @@
                         <tr>
                           <td><code>data-host</code></td>
                           <td>String (Optional)</td>
-                          <td>Analytics server endpoint URL (defaults to script origin).</td>
+                          <td>Analytics server origin URL (e.g. <code>https://analytics.yourdomain.com</code>). Defaults to script origin.</td>
+                        </tr>
+                        <tr>
+                          <td><code>data-endpoint</code></td>
+                          <td>String (Optional)</td>
+                          <td>Custom ingestion path (defaults to <code>/api/analytics/visit</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>data-auto-track</code></td>
+                          <td>Boolean (Optional)</td>
+                          <td>Set to <code>"false"</code> to disable automatic page view and SPA route change tracking.</td>
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Programmatic JavaScript API (window.AnalyticsSDK)</h3>
+                  <p class="brand-subtitle" style="margin-bottom: 12px;">Use the global SDK object for manual initialization or custom route transition tracking:</p>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">JAVASCRIPT / PROGRAMMATIC API</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getProgrammaticJsApiSnippet(), 'API snippet copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getProgrammaticJsApiSnippet() }}</pre>
+                    </div>
                   </div>
                 </article>
               }
@@ -1110,12 +1177,12 @@
                 <article>
                   <header class="docs-article-header">
                     <h1 class="docs-article-title">React Integration Guide</h1>
-                    <p class="docs-article-lead">Track Single Page Application (SPA) route transitions in React Router automatically.</p>
+                    <p class="docs-article-lead">Track Single Page Application (SPA) route transitions in React Router or standalone React apps seamlessly.</p>
                   </header>
 
                   <div class="code-box-wrapper">
                     <div class="code-box-header">
-                      <span class="code-lang-label">TSX / REACT</span>
+                      <span class="code-lang-label">TSX / REACT ROUTER HOOK</span>
                       <button mat-button class="code-copy-btn" (click)="copyToClipboard(getReactSnippet(), 'React code copied!')">
                         <mat-icon>content_copy</mat-icon> Copy Code
                       </button>
@@ -1130,13 +1197,13 @@
               @if (docsSection() === 'nextjs') {
                 <article>
                   <header class="docs-article-header">
-                    <h1 class="docs-article-title">Next.js (App Router) Integration</h1>
-                    <p class="docs-article-lead">Integrate into Next.js 13+ App Router using Next.js <code>Script</code> component.</p>
+                    <h1 class="docs-article-title">Next.js (App Router & Pages Router) Integration</h1>
+                    <p class="docs-article-lead">Integrate into Next.js 13+ App Router using Next.js <code>Script</code> component with automatic route change tracking.</p>
                   </header>
 
                   <div class="code-box-wrapper">
                     <div class="code-box-header">
-                      <span class="code-lang-label">TSX / NEXT.JS</span>
+                      <span class="code-lang-label">TSX / NEXT.JS 13+ APP ROUTER</span>
                       <button mat-button class="code-copy-btn" (click)="copyToClipboard(getNextjsSnippet(), 'Next.js code copied!')">
                         <mat-icon>content_copy</mat-icon> Copy Code
                       </button>
@@ -1157,7 +1224,7 @@
 
                   <div class="code-box-wrapper">
                     <div class="code-box-header">
-                      <span class="code-lang-label">TYPESCRIPT / ANGULAR</span>
+                      <span class="code-lang-label">TYPESCRIPT / ANGULAR SERVICE</span>
                       <button mat-button class="code-copy-btn" (click)="copyToClipboard(getAngularSnippet(), 'Angular code copied!')">
                         <mat-icon>content_copy</mat-icon> Copy Code
                       </button>
@@ -1169,22 +1236,152 @@
                 </article>
               }
 
-              @if (docsSection() === 'api-beacon') {
+              @if (docsSection() === 'vue') {
                 <article>
                   <header class="docs-article-header">
-                    <h1 class="docs-article-title">POST /api/analytics/visit</h1>
-                    <p class="docs-article-lead">Ingestion beacon endpoint for recording real-time page visit data.</p>
+                    <h1 class="docs-article-title">Vue.js 3 & Nuxt 3 Router Integration</h1>
+                    <p class="docs-article-lead">Track SPA route navigation events in Vue 3 or Nuxt 3 using a Vue Router navigation guard.</p>
                   </header>
 
                   <div class="code-box-wrapper">
                     <div class="code-box-header">
-                      <span class="code-lang-label">BASH / CURL</span>
-                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getCurlSnippet('YOUR_TENANT_ID'), 'cURL copied!')">
+                      <span class="code-lang-label">JAVASCRIPT / VUE ROUTER</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getVueSnippet(), 'Vue code copied!')">
                         <mat-icon>content_copy</mat-icon> Copy Code
                       </button>
                     </div>
                     <div class="code-box-container">
-                      <pre>{{ getCurlSnippet('YOUR_TENANT_ID') }}</pre>
+                      <pre>{{ getVueSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'svelte') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Svelte & SvelteKit Integration</h1>
+                    <p class="docs-article-lead">Track SvelteKit page views reactively using the SvelteKit <code>$page</code> store in <code>+layout.svelte</code>.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">SVELTE / SVELTEKIT</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getSvelteSnippet(), 'Svelte code copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getSvelteSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'nodejs') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Node.js & Express Middleware</h1>
+                    <p class="docs-article-lead">Record server-side page views and API requests directly from Node.js Express applications.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">JAVASCRIPT / EXPRESS</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getNodeSnippet(), 'Node.js code copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getNodeSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'python') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Python Backend Integration (Flask / Django / FastAPI)</h1>
+                    <p class="docs-article-lead">Dispatch analytics visit events from Python backend web services.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">PYTHON / FLASK</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getPythonSnippet(), 'Python code copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getPythonSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-beacon') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">POST /api/analytics/visit</h1>
+                    <p class="docs-article-lead">Public ingestion beacon endpoint for recording real-time page visit data and security threats.</p>
+                  </header>
+
+                  <div class="docs-alert-note">
+                    <mat-icon>check_circle</mat-icon>
+                    <div><strong>Zero Authentication Required:</strong> Public beacon endpoint designed to receive client tracking signals via <code>sendBeacon</code> or <code>fetch</code>.</div>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Request Body Payload Schema</h3>
+                  <div class="data-table-container" style="margin-bottom: 24px;">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          <th>Type</th>
+                          <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>siteId</code></td>
+                          <td>String</td>
+                          <td>App Tenant UUID (defaults to <code>"default"</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>path</code></td>
+                          <td>String (Required)</td>
+                          <td>Relative route path (e.g. <code>/pricing</code>). Excludes <code>/api</code>.</td>
+                        </tr>
+                        <tr>
+                          <td><code>fullUrl</code></td>
+                          <td>String</td>
+                          <td>Full browser URL including protocol & query string.</td>
+                        </tr>
+                        <tr>
+                          <td><code>referrer</code></td>
+                          <td>String</td>
+                          <td>HTTP referrer URL string.</td>
+                        </tr>
+                        <tr>
+                          <td><code>utm_source</code> ... <code>utm_term</code></td>
+                          <td>String</td>
+                          <td>UTM campaign attributes automatically extracted from URL.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Sample cURL Request</h3>
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getApiBeaconSnippet(), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getApiBeaconSnippet() }}</pre>
                     </div>
                   </div>
                 </article>
@@ -1194,12 +1391,55 @@
                 <article>
                   <header class="docs-article-header">
                     <h1 class="docs-article-title">GET /api/admin/analytics</h1>
-                    <p class="docs-article-lead">Query aggregated traffic totals, top pages, UTM campaigns, and device breakdowns.</p>
+                    <p class="docs-article-lead">Query aggregated traffic metrics, top pages, referrer sources, device breakdowns, threat levels, and UTM campaigns.</p>
                   </header>
 
                   <div class="docs-alert-note">
-                    <mat-icon>code</mat-icon>
-                    <div><strong>Query Parameters:</strong> Pass <code>siteId=YOUR_UUID</code> to filter single tenant metrics.</div>
+                    <mat-icon>lock</mat-icon>
+                    <div><strong>Authentication Required:</strong> Requires session cookie, Basic Auth (<code>admin:admin123</code>), or <code>Authorization: Bearer &lt;AUTH_SECRET&gt;</code>.</div>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Supported Query Parameters</h3>
+                  <div class="data-table-container" style="margin-bottom: 24px;">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Parameter</th>
+                          <th>Type</th>
+                          <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>siteId</code></td>
+                          <td>String</td>
+                          <td>Filter metrics for a specific App Tenant UUID or <code>"all"</code>.</td>
+                        </tr>
+                        <tr>
+                          <td><code>startDate</code></td>
+                          <td>String (ISO 8601)</td>
+                          <td>Optional start date cutoff filter (e.g. <code>2026-01-01</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>endDate</code></td>
+                          <td>String (ISO 8601)</td>
+                          <td>Optional end date cutoff filter (e.g. <code>2026-12-31</code>).</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Sample cURL & Response Schema</h3>
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getApiAnalyticsQuerySnippet(), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getApiAnalyticsQuerySnippet() }}</pre>
+                    </div>
                   </div>
                 </article>
               }
@@ -1208,8 +1448,226 @@
                 <article>
                   <header class="docs-article-header">
                     <h1 class="docs-article-title">GET /api/admin/history</h1>
-                    <p class="docs-article-lead">Query full paginated visit logs with search & device filter support.</p>
+                    <p class="docs-article-lead">Query full paginated raw visit logs with search string matching and device/threat filtering.</p>
                   </header>
+
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Query Filter Parameters</h3>
+                  <div class="data-table-container" style="margin-bottom: 24px;">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Parameter</th>
+                          <th>Default</th>
+                          <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>page</code></td>
+                          <td><code>1</code></td>
+                          <td>Page number for pagination.</td>
+                        </tr>
+                        <tr>
+                          <td><code>limit</code></td>
+                          <td><code>10</code></td>
+                          <td>Number of items per page (1 to 100).</td>
+                        </tr>
+                        <tr>
+                          <td><code>search</code></td>
+                          <td><code>""</code></td>
+                          <td>Search term for matching path, IP, or country.</td>
+                        </tr>
+                        <tr>
+                          <td><code>device</code></td>
+                          <td><code>"all"</code></td>
+                          <td>Filter by device type: <code>Desktop</code>, <code>Mobile</code>, <code>Tablet</code>, <code>Bot</code>.</td>
+                        </tr>
+                        <tr>
+                          <td><code>category</code></td>
+                          <td><code>"all"</code></td>
+                          <td>Traffic category: <code>Genuine</code>, <code>Bot</code>, <code>Threat</code>.</td>
+                        </tr>
+                        <tr>
+                          <td><code>threatType</code></td>
+                          <td><code>"all"</code></td>
+                          <td>Threat classification: <code>Vulnerability Probe</code>, <code>Path Traversal</code>, <code>DDoS Burst</code>, <code>Suspicious Scanner</code>.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Sample cURL & Response Schema</h3>
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getApiHistoryQuerySnippet(), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getApiHistoryQuerySnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-apps') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Application Tenant Management REST APIs</h1>
+                    <p class="docs-article-lead">Programmatically register, manage, and unregister multi-tenant application profiles.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getApiAppsSnippet(), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getApiAppsSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-export-import') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Data Backup & Dataset Restore REST APIs</h1>
+                    <p class="docs-article-lead">Export recorded visit logs into JSON/CSV files or restore backup datasets into MongoDB.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getApiExportImportSnippet(), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getApiExportImportSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-system') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">System Health Specs & Maintenance REST APIs</h1>
+                    <p class="docs-article-lead">Inspect cluster health, collection document totals, Node & MongoDB runtime specs, or purge recorded logs.</p>
+                  </header>
+
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard(getApiSystemSnippet(), 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>{{ getApiSystemSnippet() }}</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'threat-engine') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Automated Threat & Bot Intelligence Pipeline</h1>
+                    <p class="docs-article-lead">Every incoming visit is analyzed in real time for vulnerability probes, injection attacks, suspicious security scanners, and DDoS rate bursts.</p>
+                  </header>
+
+                  <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Threat Classifications & Severities</h3>
+                  <div class="data-table-container" style="margin-bottom: 24px;">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Threat Type</th>
+                          <th>Severity</th>
+                          <th>Detection Rules</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>Vulnerability Probe</code></td>
+                          <td><span class="status-indicator-dot offline"></span> Critical</td>
+                          <td>Detects attempts to access sensitive files: <code>.env</code>, <code>.git</code>, <code>/etc/ssl</code>, <code>/wp-admin</code>, <code>/actuator</code>, webshell probes (<code>shell.php</code>), config backups (<code>.sql</code>, <code>.key</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>Path Traversal</code></td>
+                          <td>High</td>
+                          <td>Detects directory traversal patterns (<code>../</code>), SQL Injection (<code>UNION SELECT</code>, <code>DROP TABLE</code>), and XSS scripts.</td>
+                        </tr>
+                        <tr>
+                          <td><code>Suspicious Scanner</code></td>
+                          <td>High</td>
+                          <td>Detects automated security scanning tools (<code>sqlmap</code>, <code>nikto</code>, <code>nmap</code>, <code>masscan</code>, <code>gobuster</code>, <code>wpscan</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>DDoS Burst</code></td>
+                          <td><span class="status-indicator-dot offline"></span> Critical</td>
+                          <td>Triggers when an IP sends &gt;= 5 requests within a 10-second window.</td>
+                        </tr>
+                        <tr>
+                          <td><code>Bot</code></td>
+                          <td>Low</td>
+                          <td>Standard search engine crawlers and spiders (<code>Googlebot</code>, <code>Bingbot</code>, <code>YandexBot</code>).</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'utm-tracking') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">UTM Campaign & Marketing Attribution Engine</h1>
+                    <p class="docs-article-lead">Automatically captures and analyzes marketing parameters from incoming request URLs for precise campaign attribution.</p>
+                  </header>
+
+                  <div class="data-table-container">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Parameter</th>
+                          <th>Description</th>
+                          <th>Example</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>utm_source</code></td>
+                          <td>Identify the advertiser, site, or publication sending traffic.</td>
+                          <td><code>google</code>, <code>newsletter</code>, <code>twitter</code></td>
+                        </tr>
+                        <tr>
+                          <td><code>utm_medium</code></td>
+                          <td>Identify the advertising or marketing medium.</td>
+                          <td><code>cpc</code>, <code>email</code>, <code>social</code></td>
+                        </tr>
+                        <tr>
+                          <td><code>utm_campaign</code></td>
+                          <td>Identify the specific product promo or strategic campaign.</td>
+                          <td><code>summer_sale_2026</code>, <code>black_friday</code></td>
+                        </tr>
+                        <tr>
+                          <td><code>utm_content</code></td>
+                          <td>Differentiate similar content or links within the same ad/email.</td>
+                          <td><code>hero_banner</code>, <code>cta_button</code></td>
+                        </tr>
+                        <tr>
+                          <td><code>utm_term</code></td>
+                          <td>Identify paid search keywords.</td>
+                          <td><code>analytics_software</code>, <code>saas_dashboard</code></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </article>
               }
 
@@ -1294,6 +1752,64 @@
                 </article>
               }
 
+              @if (docsSection() === 'env-vars') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">System Environment Variables Reference</h1>
+                    <p class="docs-article-lead">Configure environment parameters in your <code>.env</code> file or deployment container runtime.</p>
+                  </header>
+
+                  <div class="data-table-container">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Variable</th>
+                          <th>Default Value</th>
+                          <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><code>PORT</code></td>
+                          <td><code>3000</code></td>
+                          <td>HTTP server listening port.</td>
+                        </tr>
+                        <tr>
+                          <td><code>NODE_ENV</code></td>
+                          <td><code>development</code></td>
+                          <td>Runtime environment mode (<code>development</code> or <code>production</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>MONGODB_URI</code></td>
+                          <td><code>mongodb://127.0.0.1:27017/analytics_db</code></td>
+                          <td>MongoDB connection string URI.</td>
+                        </tr>
+                        <tr>
+                          <td><code>CORS_ORIGIN</code></td>
+                          <td><code>*</code></td>
+                          <td>Allowed CORS origins (comma-separated or <code>*</code>).</td>
+                        </tr>
+                        <tr>
+                          <td><code>ADMIN_USERNAME</code></td>
+                          <td><code>admin</code></td>
+                          <td>Superadmin login username.</td>
+                        </tr>
+                        <tr>
+                          <td><code>ADMIN_PASSWORD</code></td>
+                          <td><code>admin123</code></td>
+                          <td>Superadmin login password.</td>
+                        </tr>
+                        <tr>
+                          <td><code>AUTH_SECRET</code></td>
+                          <td><code>analytics_secret_token_key_987654321</code></td>
+                          <td>JWT & bearer auth encryption secret.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </article>
+              }
+
             </main>
 
           </div>
@@ -1315,10 +1831,15 @@
       </mat-card-header>
 
       <mat-card-content style="margin-top: 16px;">
-        <mat-button-toggle-group [value]="snippetType()" (change)="snippetType.set($event.value)">
-          <mat-button-toggle value="script">HTML &lt;script&gt; Tag</mat-button-toggle>
-          <mat-button-toggle value="npm">JavaScript / NPM</mat-button-toggle>
-          <mat-button-toggle value="curl">cURL / REST API</mat-button-toggle>
+        <mat-button-toggle-group [value]="snippetType()" (change)="snippetType.set($event.value)" style="flex-wrap: wrap;">
+          <mat-button-toggle value="script">HTML &lt;script&gt;</mat-button-toggle>
+          <mat-button-toggle value="npm">JS / Fetch</mat-button-toggle>
+          <mat-button-toggle value="react">React</mat-button-toggle>
+          <mat-button-toggle value="nextjs">Next.js</mat-button-toggle>
+          <mat-button-toggle value="angular">Angular</mat-button-toggle>
+          <mat-button-toggle value="vue">Vue 3</mat-button-toggle>
+          <mat-button-toggle value="svelte">SvelteKit</mat-button-toggle>
+          <mat-button-toggle value="curl">cURL</mat-button-toggle>
         </mat-button-toggle-group>
 
         <div class="code-box-wrapper">
@@ -1332,6 +1853,11 @@
                       (click)="copyToClipboard(
                         snippetType() === 'script' ? getTrackingScriptSnippet(selectedAppForSnippet()) :
                         snippetType() === 'npm' ? getNpmSnippet(selectedAppForSnippet()) :
+                        snippetType() === 'react' ? getReactSnippet(selectedAppForSnippet()) :
+                        snippetType() === 'nextjs' ? getNextjsSnippet(selectedAppForSnippet()) :
+                        snippetType() === 'angular' ? getAngularSnippet(selectedAppForSnippet()) :
+                        snippetType() === 'vue' ? getVueSnippet(selectedAppForSnippet()) :
+                        snippetType() === 'svelte' ? getSvelteSnippet(selectedAppForSnippet()) :
                         getCurlSnippet(selectedAppForSnippet()),
                         'Tracking code copied!'
                       )">
@@ -1345,6 +1871,16 @@
 {{ getTrackingScriptSnippet(selectedAppForSnippet()) }}
 } @else if (snippetType() === 'npm') {
 {{ getNpmSnippet(selectedAppForSnippet()) }}
+} @else if (snippetType() === 'react') {
+{{ getReactSnippet(selectedAppForSnippet()) }}
+} @else if (snippetType() === 'nextjs') {
+{{ getNextjsSnippet(selectedAppForSnippet()) }}
+} @else if (snippetType() === 'angular') {
+{{ getAngularSnippet(selectedAppForSnippet()) }}
+} @else if (snippetType() === 'vue') {
+{{ getVueSnippet(selectedAppForSnippet()) }}
+} @else if (snippetType() === 'svelte') {
+{{ getSvelteSnippet(selectedAppForSnippet()) }}
 } @else {
 {{ getCurlSnippet(selectedAppForSnippet()) }}
 }
