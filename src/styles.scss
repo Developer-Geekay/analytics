@@ -742,6 +742,133 @@ body {
 }
 
 /* ==========================================================================
+   SCROLLABLE SECTION CONTAINER & CRITICAL THREAT ALERTS
+   ========================================================================== */
+
+.scrollable-card-body {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mat-sys-outline);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--mat-sys-primary);
+  }
+}
+
+.critical-threat-alert-banner {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(220, 38, 38, 0.08));
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+  animation: alertPulse 3s infinite ease-in-out;
+}
+
+@keyframes alertPulse {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15); }
+  50% { border-color: rgba(239, 68, 68, 0.85); box-shadow: 0 4px 25px rgba(239, 68, 68, 0.35); }
+}
+
+.alert-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.alert-pulse-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.alert-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ef4444;
+  margin: 0 0 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-subtitle {
+  font-size: 0.8rem;
+  color: var(--mat-sys-on-surface);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.threat-badge {
+  font-size: 0.675rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &.critical { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+  &.high { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+  &.medium { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+  &.low { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+}
+
+.traffic-category-pill {
+  font-size: 0.725rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+
+  &.genuine { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+  &.bot { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+  &.threat { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+}
+
+.traffic-distribution-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background-color: rgba(128, 128, 128, 0.15);
+  margin: 12px 0;
+}
+
+.bar-segment-genuine { background-color: #10b981; transition: width 0.4s ease; }
+.bar-segment-bot { background-color: #3b82f6; transition: width 0.4s ease; }
+.bar-segment-threat { background-color: #ef4444; transition: width 0.4s ease; }
+
+/* ==========================================================================
    AUTHENTIC DEVELOPER DOCUMENTATION PORTAL LAYOUT
    ========================================================================== */
 

@@ -8,8 +8,8 @@
     "server": "node server.js",
     "client": "ng serve --port 4200",
     "start": "node server.js",
-    "seed": "node seedData.js",
-    "build": "ng build && node scripts/after_prepare.js"
+    "build": "ng build && node scripts/after_prepare.js",
+    "migrate:prod": "node scripts/migrate_prod_db.js"
   },
   "dependencies": {
     "@angular/animations": "^21.2.0",
@@ -25,6 +25,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
+    "geoip-lite": "^1.4.10",
     "mongoose": "^8.9.5",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

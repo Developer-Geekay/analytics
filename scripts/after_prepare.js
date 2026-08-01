@@ -13,7 +13,7 @@ const releaseDir = path.join(rootDir, 'release');
 console.log('🚀 Executing post-build release packaging (after_prepare.js)...');
 
 // Helper to resolve only true production runtime dependencies for server.js
-const SERVER_RUNTIME_PACKAGES = ['express', 'mongoose', 'cors', 'cookie-parser', 'dotenv'];
+const SERVER_RUNTIME_PACKAGES = ['express', 'mongoose', 'cors', 'cookie-parser', 'dotenv', 'geoip-lite'];
 
 function getTransitiveDependencies(packageNames, baseNodeModulesDir) {
   const required = new Set();

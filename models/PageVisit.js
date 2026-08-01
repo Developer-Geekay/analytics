@@ -37,6 +37,28 @@ const PageVisitSchema = new mongoose.Schema(
       default: '',
       index: true,
     },
+    country: {
+      type: String,
+      default: 'Unknown',
+      index: true,
+      trim: true,
+    },
+    countryCode: {
+      type: String,
+      default: '',
+      index: true,
+      trim: true,
+    },
+    region: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    city: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     deviceType: {
       type: String,
       enum: ['Desktop', 'Mobile', 'Tablet', 'Bot'],
@@ -45,6 +67,29 @@ const PageVisitSchema = new mongoose.Schema(
     browser: {
       type: String,
       default: 'Unknown',
+    },
+    trafficCategory: {
+      type: String,
+      enum: ['Genuine', 'Bot', 'Threat'],
+      default: 'Genuine',
+      index: true,
+    },
+    threatType: {
+      type: String,
+      enum: ['None', 'Vulnerability Probe', 'Path Traversal', 'DDoS Burst', 'Suspicious Scanner'],
+      default: 'None',
+      index: true,
+    },
+    threatSeverity: {
+      type: String,
+      enum: ['Low', 'Medium', 'High', 'Critical'],
+      default: 'Low',
+      index: true,
+    },
+    threatReason: {
+      type: String,
+      default: '',
+      trim: true,
     },
     timestamp: {
       type: Date,

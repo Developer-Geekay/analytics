@@ -54,11 +54,12 @@ export class AnalyticsService {
     );
   }
 
-  fetchHistory(params: { siteId?: string; search?: string; device?: string; page?: number; limit?: number }): Observable<any> {
+  fetchHistory(params: { siteId?: string; search?: string; device?: string; category?: string; page?: number; limit?: number }): Observable<any> {
     const queryParams: string[] = [];
     if (params.siteId && params.siteId !== 'all') queryParams.push(`siteId=${encodeURIComponent(params.siteId)}`);
     if (params.search) queryParams.push(`search=${encodeURIComponent(params.search)}`);
     if (params.device && params.device !== 'all') queryParams.push(`device=${encodeURIComponent(params.device)}`);
+    if (params.category && params.category !== 'all') queryParams.push(`category=${encodeURIComponent(params.category)}`);
     if (params.page) queryParams.push(`page=${params.page}`);
     if (params.limit) queryParams.push(`limit=${params.limit}`);
 

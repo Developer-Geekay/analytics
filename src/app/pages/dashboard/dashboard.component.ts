@@ -26,7 +26,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AuthService } from '../../core/services/auth.service';
 
 export type NavSection = 'dashboard' | 'apps' | 'settings' | 'docs';
-export type TabType = 'overview' | 'pages' | 'acquisition' | 'devices' | 'feed';
+export type TabType = 'overview' | 'pages' | 'acquisition' | 'devices' | 'threats' | 'feed';
 
 @Component({
   selector: 'app-dashboard',
@@ -80,10 +80,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   searchQuery = signal<string>('');
   deviceFilter = signal<string>('all');
+  categoryFilter = signal<string>('all');
+  dismissAlertBanner = signal<boolean>(false);
   autoRefreshEnabled = signal<boolean>(false);
   secondsUntilRefresh = signal<number>(5);
   showClearModal = signal<boolean>(false);
-
 
   // App Management State
   showRegisterAppModal = signal<boolean>(false);
@@ -198,6 +199,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       siteId: this.analyticsService.selectedSiteId(),
       search: this.searchQuery(),
       device: this.deviceFilter(),
+      category: this.categoryFilter(),
       page: this.historyPage(),
       limit: this.historyLimit()
     }).subscribe({
@@ -221,11 +223,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadHistory();
   }
 
-  setTab(tab: TabType): void {
-    this.activeTab.set(tab);
-    if (tab === 'feed') {
-      this.loadHistory();
+  setTab(tab: string): void {
+    const validTabs: TabType[] = ['overview', 'pages', 'acquisition', 'devices', 'threats', 'feed'];
+    if (validTabs.includes(tab as TabType)) {
+      this.activeTab.set(tab as TabType);
+      if (tab === 'feed' || tab === 'threats') {
+        this.loadHistory();
+      }
     }
+  }
+
+  onCategoryFilterChange(category: string): void {
+    this.categoryFilter.set(category);
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  getGenuinePercentage(): number {
+    const summary = this.analyticsService.summary();
+    if (!summary || !summary.totalVisits) return 0;
+    return Math.round(((summary.trafficBreakdown?.Genuine || 0) / summary.totalVisits) * 100);
+  }
+
+  getBotPercentage(): number {
+    const summary = this.analyticsService.summary();
+    if (!summary || !summary.totalVisits) return 0;
+    return Math.round(((summary.trafficBreakdown?.Bot || 0) / summary.totalVisits) * 100);
+  }
+
+  getThreatPercentage(): number {
+    const summary = this.analyticsService.summary();
+    if (!summary || !summary.totalVisits) return 0;
+    return Math.round(((summary.trafficBreakdown?.Threat || 0) / summary.totalVisits) * 100);
   }
 
   // Pagination Handlers
@@ -376,12 +405,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return Math.round((count / summary.totalVisits) * 100);
   }
 
-  // Timestamps formatted in client browser's local timezone
+  getCountryFlag(countryCode: string | undefined): string {
+    if (!countryCode || countryCode.length !== 2) return '🌐';
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  }
+
   formatDate(timestamp: string | Date | undefined): string {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + ' ' +
-           date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'UTC' }) + ' ' +
+           date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) + ' UTC';
   }
 
   getRelativeTime(timestamp: string | Date | undefined): string {

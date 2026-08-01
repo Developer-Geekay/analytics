@@ -153,6 +153,36 @@
         <!-- SECTION 1: DASHBOARD VIEW -->
         @if (mainNav() === 'dashboard') {
 
+          <!-- Critical Security Threat Alert Banner (Shown when threats detected) -->
+          @if (summary.threatsCount && summary.threatsCount > 0 && !dismissAlertBanner()) {
+            <div class="critical-threat-alert-banner">
+              <div class="alert-banner-left">
+                <div class="alert-pulse-icon-box">
+                  <mat-icon color="warn">gpp_maybe</mat-icon>
+                </div>
+                <div>
+                  <h4 class="alert-title">
+                    <span>CRITICAL SECURITY THREAT ALERT</span>
+                    <span class="threat-badge critical">{{ summary.threatsCount }} THREAT PROBES DETECTED</span>
+                  </h4>
+                  <p class="alert-subtitle">
+                    Automated vulnerability scanning or malicious probing captured on path 
+                    <code style="color:#f87171;">{{ (summary.topThreatPaths && summary.topThreatPaths[0]) ? summary.topThreatPaths[0].path : '/.env' }}</code>.
+                    Analysis active across multi-tenant traffic.
+                  </p>
+                </div>
+              </div>
+              <div class="control-bar-actions">
+                <button mat-flat-button color="warn" (click)="setTab('threats')">
+                  <mat-icon>shield</mat-icon> Inspect Security Threats
+                </button>
+                <button mat-icon-button (click)="dismissAlertBanner.set(true)" matTooltip="Dismiss Alert">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+
           <!-- Dashboard Control Bar -->
           <mat-card class="control-bar-card">
             <div class="control-bar-left">
@@ -219,17 +249,17 @@
               </mat-card-content>
             </mat-card>
 
-            <!-- Card 4: Active Apps -->
-            <mat-card class="kpi-card">
+            <!-- Card 4: Security Threats -->
+            <mat-card class="kpi-card" [class.card-danger-accent]="(summary.threatsCount || 0) > 0">
               <mat-card-content>
                 <div class="kpi-header">
-                  <span class="kpi-label">Active Apps</span>
-                  <div class="kpi-icon-badge kpi-icon-badge-amber">
-                    <mat-icon>apps</mat-icon>
+                  <span class="kpi-label">Security Threats</span>
+                  <div class="kpi-icon-badge" [ngClass]="(summary.threatsCount || 0) > 0 ? 'kpi-icon-badge-amber' : 'kpi-icon-badge-emerald'" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                    <mat-icon>{{ (summary.threatsCount || 0) > 0 ? 'gpp_maybe' : 'verified_user' }}</mat-icon>
                   </div>
                 </div>
-                <div class="kpi-value">{{ (summary.availableSites || []).length }}</div>
-                <p class="kpi-caption">Registered tenant sites</p>
+                <div class="kpi-value" [style.color]="(summary.threatsCount || 0) > 0 ? '#ef4444' : 'inherit'">{{ summary.threatsCount || 0 }}</div>
+                <p class="kpi-caption">{{ (summary.threatsCount || 0) > 0 ? 'Critical alerts & probes detected' : 'No security threats detected' }}</p>
               </mat-card-content>
             </mat-card>
 
@@ -237,15 +267,41 @@
 
           <!-- Dashboard Sub-Tabs Main Card Section -->
           <div class="tab-section-card">
-            <mat-tab-group (selectedTabChange)="setTab(['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'overview' ? 'overview' : ['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'pages' ? 'pages' : ['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'acquisition' ? 'acquisition' : ['overview', 'pages', 'acquisition', 'devices', 'feed'][$event.index] === 'devices' ? 'devices' : 'feed')">
+            <mat-tab-group [selectedIndex]="activeTab() === 'overview' ? 0 : activeTab() === 'pages' ? 1 : activeTab() === 'acquisition' ? 2 : activeTab() === 'devices' ? 3 : activeTab() === 'threats' ? 4 : 5"
+                           (selectedTabChange)="setTab(['overview', 'pages', 'acquisition', 'devices', 'threats', 'feed'][$event.index] || 'overview')">
 
               <!-- Overview Tab -->
               <mat-tab label="Overview Summary">
                 <div class="tab-content-container">
 
+                  <!-- Traffic Classification Overview Bar -->
+                  <div class="overview-metric-card" style="margin-bottom: 20px;">
+                    <div class="overview-card-header" style="margin-bottom: 8px;">
+                      <div class="kpi-icon-badge kpi-icon-badge-cyan">
+                        <mat-icon>analytics</mat-icon>
+                      </div>
+                      <div>
+                        <h3 class="overview-card-title">Traffic Analysis & Threat Classification</h3>
+                        <p class="brand-subtitle" style="margin: 0;">Genuine Visitors vs Search Bots vs Security Threat Probes</p>
+                      </div>
+                    </div>
+
+                    <div class="traffic-distribution-bar">
+                      <div class="bar-segment-genuine" [style.width.%]="getGenuinePercentage()" matTooltip="Genuine: {{ getGenuinePercentage() }}%"></div>
+                      <div class="bar-segment-bot" [style.width.%]="getBotPercentage()" matTooltip="Bot: {{ getBotPercentage() }}%"></div>
+                      <div class="bar-segment-threat" [style.width.%]="getThreatPercentage()" matTooltip="Threat: {{ getThreatPercentage() }}%"></div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; font-weight: 600;">
+                      <span style="color: #34d399;">● Genuine Users: {{ summary.trafficBreakdown?.Genuine || 0 }} ({{ getGenuinePercentage() }}%)</span>
+                      <span style="color: #60a5fa;">● Bots / Crawlers: {{ summary.trafficBreakdown?.Bot || 0 }} ({{ getBotPercentage() }}%)</span>
+                      <span style="color: #f87171;">● Security Threats: {{ summary.trafficBreakdown?.Threat || 0 }} ({{ getThreatPercentage() }}%)</span>
+                    </div>
+                  </div>
+
                   <div class="content-grid-2col">
 
-                    <!-- Top Visited Pages -->
+                    <!-- Top Visited Pages (SCROLLABLE to fix Image 2 layout overflow) -->
                     <div class="overview-metric-card">
                       <div class="overview-card-header">
                         <div class="kpi-icon-badge kpi-icon-badge-cyan">
@@ -254,20 +310,22 @@
                         <h3 class="overview-card-title">Top Visited Pages</h3>
                       </div>
 
-                      @for (page of summary.topPages; track page.path) {
-                        <div class="metric-row-item">
-                          <div class="metric-row-header">
-                            <code class="metric-path-code">{{ page.path }}</code>
-                            <span class="metric-count-text">{{ page.count }} {{ page.count === 1 ? 'visit' : 'visits' }}</span>
+                      <div class="scrollable-card-body">
+                        @for (page of summary.topPages; track page.path) {
+                          <div class="metric-row-item">
+                            <div class="metric-row-header">
+                              <code class="metric-path-code">{{ page.path }}</code>
+                              <span class="metric-count-text">{{ page.count }} {{ page.count === 1 ? 'visit' : 'visits' }}</span>
+                            </div>
+                            <div class="metric-progress-track">
+                              <div class="metric-progress-fill" [style.width.%]="(page.count / getMaxPageCount(summary.topPages)) * 100"></div>
+                            </div>
                           </div>
-                          <div class="metric-progress-track">
-                            <div class="metric-progress-fill" [style.width.%]="(page.count / getMaxPageCount(summary.topPages)) * 100"></div>
-                          </div>
-                        </div>
-                      }
+                        }
+                      </div>
                     </div>
 
-                    <!-- Top Referrers -->
+                    <!-- Top Referrers (SCROLLABLE to fix Image 2 layout overflow) -->
                     <div class="overview-metric-card">
                       <div class="overview-card-header">
                         <div class="kpi-icon-badge kpi-icon-badge-purple">
@@ -276,17 +334,46 @@
                         <h3 class="overview-card-title">Top Traffic Sources</h3>
                       </div>
 
-                      @for (ref of summary.topReferrers || []; track ref.referrer) {
-                        <div class="metric-row-item">
-                          <div class="metric-row-header">
-                            <code class="metric-path-code">{{ ref.referrer || 'Direct / Bookmark' }}</code>
-                            <span class="metric-count-text">{{ ref.count }} {{ ref.count === 1 ? 'visit' : 'visits' }}</span>
+                      <div class="scrollable-card-body">
+                        @for (ref of summary.topReferrers || []; track ref.referrer) {
+                          <div class="metric-row-item">
+                            <div class="metric-row-header">
+                              <code class="metric-path-code">{{ ref.referrer || 'Direct / Bookmark' }}</code>
+                              <span class="metric-count-text">{{ ref.count }} {{ ref.count === 1 ? 'visit' : 'visits' }}</span>
+                            </div>
+                            <div class="metric-progress-track">
+                              <div class="metric-progress-fill" [style.width.%]="(ref.count / getMaxReferrerCount(summary.topReferrers)) * 100"></div>
+                            </div>
                           </div>
-                          <div class="metric-progress-track">
-                            <div class="metric-progress-fill" [style.width.%]="(ref.count / getMaxReferrerCount(summary.topReferrers)) * 100"></div>
-                          </div>
+                        }
+                      </div>
+                    </div>
+
+                    <!-- Top Countries & Geographic Distribution -->
+                    <div class="overview-metric-card">
+                      <div class="overview-card-header">
+                        <div class="kpi-icon-badge kpi-icon-badge-emerald">
+                          <mat-icon>public</mat-icon>
                         </div>
-                      }
+                        <h3 class="overview-card-title">Top Countries & Regions</h3>
+                      </div>
+
+                      <div class="scrollable-card-body">
+                        @for (country of summary.topCountries || []; track country.country) {
+                          <div class="metric-row-item">
+                            <div class="metric-row-header">
+                              <span style="font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 1.2rem;">{{ getCountryFlag(country.countryCode) }}</span>
+                                {{ country.country }}
+                              </span>
+                              <span class="metric-count-text">{{ country.count }} {{ country.count === 1 ? 'visit' : 'visits' }} ({{ country.percentage }}%)</span>
+                            </div>
+                            <div class="metric-progress-track">
+                              <div class="metric-progress-fill" [style.width.%]="country.percentage"></div>
+                            </div>
+                          </div>
+                        }
+                      </div>
                     </div>
 
                   </div>
@@ -303,6 +390,7 @@
                         <tr>
                           <th>Page Path</th>
                           <th>Total Pageviews</th>
+                          <th>Traffic Share</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -310,6 +398,12 @@
                           <tr>
                             <td><code>{{ page.path }}</code></td>
                             <td><strong>{{ page.count }}</strong></td>
+                            <td>
+                              <div class="metric-progress-track" style="width: 120px; display: inline-block; vertical-align: middle; margin-right: 8px;">
+                                <div class="metric-progress-fill" [style.width.%]="page.percentage"></div>
+                              </div>
+                              <span>{{ page.percentage }}%</span>
+                            </td>
                           </tr>
                         }
                       </tbody>
@@ -365,7 +459,7 @@
                     </div>
                     <div class="metric-row-item">
                       <div class="metric-row-header">
-                        <span>Bot</span>
+                        <span>Bot / Crawler</span>
                         <strong>{{ summary.deviceBreakdown.Bot || 0 }}</strong>
                       </div>
                     </div>
@@ -391,11 +485,128 @@
                 </div>
               </mat-tab>
 
+              <!-- Threat & Security Analysis Tab (NEW) -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <mat-icon [color]="(summary.threatsCount || 0) > 0 ? 'warn' : 'primary'">security</mat-icon>
+                    <span>Threat & Security Analysis</span>
+                    @if ((summary.threatsCount || 0) > 0) {
+                      <span class="threat-badge critical" style="padding: 1px 6px; font-size: 0.65rem;">{{ summary.threatsCount }}</span>
+                    }
+                  </div>
+                </ng-template>
+
+                <div class="tab-content-container">
+
+                  <!-- Security KPI Grid -->
+                  <div class="content-grid-2col mb-4" style="margin-bottom: 20px;">
+
+                    <!-- Top Probed Paths -->
+                    <div class="overview-metric-card">
+                      <div class="overview-card-header">
+                        <div class="kpi-icon-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                          <mat-icon>gpp_maybe</mat-icon>
+                        </div>
+                        <h3 class="overview-card-title" style="color: #ef4444;">Most Probed Target Routes</h3>
+                      </div>
+
+                      <div class="scrollable-card-body">
+                        @if (!summary.topThreatPaths || summary.topThreatPaths.length === 0) {
+                          <p class="brand-subtitle" style="text-align: center; padding: 20px;">No threat probing attempts recorded yet.</p>
+                        } @else {
+                          @for (threatPath of summary.topThreatPaths; track threatPath.path) {
+                            <div class="metric-row-item" style="border-left: 3px solid #ef4444;">
+                              <div class="metric-row-header">
+                                <code class="metric-path-code" style="color: #ef4444;">{{ threatPath.path }}</code>
+                                <span class="threat-badge critical">{{ threatPath.count }} {{ threatPath.count === 1 ? 'probe' : 'probes' }}</span>
+                              </div>
+                              <span style="font-size: 0.75rem; color: var(--mat-sys-on-surface-variant);">Vector: {{ threatPath.reason }}</span>
+                            </div>
+                          }
+                        }
+                      </div>
+                    </div>
+
+                    <!-- Top Attacking IPs -->
+                    <div class="overview-metric-card">
+                      <div class="overview-card-header">
+                        <div class="kpi-icon-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+                          <mat-icon>fmd_bad</mat-icon>
+                        </div>
+                        <h3 class="overview-card-title">Top Attacking / Probing Visitor IPs</h3>
+                      </div>
+
+                      <div class="scrollable-card-body">
+                        @if (!summary.topThreatIPs || summary.topThreatIPs.length === 0) {
+                          <p class="brand-subtitle" style="text-align: center; padding: 20px;">No suspicious IP activity flagged.</p>
+                        } @else {
+                          @for (ipItem of summary.topThreatIPs; track ipItem.ip) {
+                            <div class="metric-row-item">
+                              <div class="metric-row-header">
+                                <code class="metric-path-code">{{ ipItem.ip }}</code>
+                                <span class="threat-badge high">{{ ipItem.count }} events</span>
+                              </div>
+                              <span style="font-size: 0.75rem; color: var(--mat-sys-on-surface-variant);">Type: {{ ipItem.lastThreatType }}</span>
+                            </div>
+                          }
+                        }
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- Critical Alert Security Incident Table -->
+                  <h3 class="overview-card-title" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <mat-icon color="warn">report_problem</mat-icon> Critical Security Incident Logs
+                  </h3>
+                  <div class="data-table-container">
+                    <table class="custom-data-table">
+                      <thead>
+                        <tr>
+                          <th>Timestamp</th>
+                          <th>App Tenant</th>
+                          <th>Probed Route Path</th>
+                          <th>Attacker IP</th>
+                          <th>Threat Type</th>
+                          <th>Severity</th>
+                          <th>Security Vector Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @if (!summary.criticalAlerts || summary.criticalAlerts.length === 0) {
+                          <tr>
+                            <td colspan="7" style="text-align: center; padding: 24px;">No critical threat alerts recorded. Click "Trigger Vulnerability Probe" to test security detection!</td>
+                          </tr>
+                        } @else {
+                          @for (alert of summary.criticalAlerts; track alert._id) {
+                            <tr>
+                              <td><code>{{ formatDate(alert.timestamp) }}</code></td>
+                              <td><strong>{{ alert.siteId }}</strong></td>
+                              <td><code style="color: #ef4444; font-weight: 700;">{{ alert.path }}</code></td>
+                              <td><code>{{ alert.ip }}</code></td>
+                              <td><span class="traffic-category-pill threat">{{ alert.threatType || 'Probe' }}</span></td>
+                              <td>
+                                <span class="threat-badge" [ngClass]="(alert.threatSeverity || 'high').toLowerCase()">
+                                  {{ alert.threatSeverity || 'HIGH' }}
+                                </span>
+                              </td>
+                              <td><span style="font-size: 0.8rem; color: var(--mat-sys-on-surface-variant);">{{ alert.threatReason }}</span></td>
+                            </tr>
+                          }
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+              </mat-tab>
+
               <!-- Full Activity History Tab -->
               <mat-tab label="Full Activity Log">
                 <div class="tab-content-container">
 
-                  <!-- Search & Filters -->
+                  <!-- Search & Category Filters -->
                   <div class="control-bar-card">
                     <div class="control-bar-left">
                       <mat-form-field appearance="outline" class="control-bar-select">
@@ -406,6 +617,16 @@
                     </div>
 
                     <div class="control-bar-actions">
+                      <mat-form-field appearance="outline" class="control-bar-select">
+                        <mat-label>Category Analysis</mat-label>
+                        <mat-select [ngModel]="categoryFilter()" (ngModelChange)="onCategoryFilterChange($event)">
+                          <mat-option value="all">All Traffic Categories</mat-option>
+                          <mat-option value="Genuine">Genuine Visitors Only</mat-option>
+                          <mat-option value="Bot">Bots & Crawlers Only</mat-option>
+                          <mat-option value="Threat">Security Threats & DDoS Only</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+
                       <mat-form-field appearance="outline" class="control-bar-select">
                         <mat-label>Device Filter</mat-label>
                         <mat-select [ngModel]="deviceFilter()" (ngModelChange)="onDeviceFilterChange($event)">
@@ -426,6 +647,7 @@
                           <th>Local Timestamp</th>
                           <th>App Tenant</th>
                           <th>Page Path</th>
+                          <th>Category Analysis</th>
                           <th>Device / OS</th>
                           <th>Visitor IP</th>
                         </tr>
@@ -436,8 +658,21 @@
                             <td><code>{{ formatDate(visit.timestamp) }}</code></td>
                             <td><strong>{{ visit.siteId }}</strong></td>
                             <td><code>{{ visit.path }}</code></td>
+                            <td>
+                              <span class="traffic-category-pill" [ngClass]="(visit.trafficCategory || 'Genuine').toLowerCase()">
+                                {{ visit.trafficCategory || 'Genuine' }}
+                              </span>
+                              @if (visit.trafficCategory === 'Threat') {
+                                <span class="threat-badge critical" style="margin-left: 4px;">{{ visit.threatType || 'Probe' }}</span>
+                              }
+                            </td>
                             <td>{{ visit.deviceType }} ({{ visit.browser }})</td>
-                            <td><code>{{ visit.ip }}</code></td>
+                            <td>
+                              <code>{{ visit.ip }}</code>
+                              <span style="font-size: 0.85rem; margin-left: 6px;" [matTooltip]="visit.city ? visit.city + ', ' + visit.country : (visit.country || '')">
+                                {{ getCountryFlag(visit.countryCode) }} {{ visit.city ? visit.city + ', ' + visit.country : (visit.country || '') }}
+                              </span>
+                            </td>
                           </tr>
                         }
                       </tbody>

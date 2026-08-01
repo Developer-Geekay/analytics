@@ -19,9 +19,22 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 // Enable CORS for cross-origin analytics tracking beacons
 app.use(cors({
-  origin: CORS_ORIGIN,
+  origin: (origin, callback) => {
+    // If no origin (e.g. same-origin, curl, server-to-server) or wildcard configured, reflect request origin
+    if (!origin || CORS_ORIGIN === '*') {
+      return callback(null, origin || '*');
+    }
+    const allowed = CORS_ORIGIN.split(',').map(o => o.trim());
+    if (allowed.includes(origin)) {
+      return callback(null, origin);
+    }
+    return callback(null, false);
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'site-id']
 }));
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -64,27 +77,167 @@ function detectBrowser(userAgent = '') {
   return 'Other';
 }
 
+async function analyzeRequestTraffic(visitPath = '', userAgent = '', ip = '', timestamp = new Date(), siteId = 'default') {
+  let trafficCategory = 'Genuine';
+  let threatType = 'None';
+  let threatSeverity = 'Low';
+  let threatReason = '';
+
+  const pathLower = (visitPath || '').toLowerCase();
+  const uaLower = (userAgent || '').toLowerCase();
+
+  // 1. Check for vulnerability probing patterns (sensitive configuration files, admin probes, canary URLs, env files)
+  const vulnProbePatterns = [
+    { pattern: /\/\.env/i, reason: 'Probing sensitive environment variables (.env)' },
+    { pattern: /\/\.git/i, reason: 'Probing exposed .git repository' },
+    { pattern: /\/etc\/ssl/i, reason: 'Probing SSL private keys directory (/etc/ssl)' },
+    { pattern: /\/actuator/i, reason: 'Spring Boot Actuator endpoint exposure scan' },
+    { pattern: /\/server-status/i, reason: 'Apache / Server Status page probing' },
+    { pattern: /\/_vti_pvt/i, reason: 'FrontPage Server Extensions private file probe' },
+    { pattern: /\/telescope/i, reason: 'Laravel Telescope debug route probe' },
+    { pattern: /\/debug\/default\/view/i, reason: 'Yii/Framework debug console probe' },
+    { pattern: /zzcanary/i, reason: 'Automated vulnerability scanner canary probe' },
+    { pattern: /\/(wp-config|wp-admin|wp-content|xmlrpc\.php)/i, reason: 'WordPress admin / vulnerability scanner' },
+    { pattern: /\/(phpmyadmin|pma|adminer|dbadmin)/i, reason: 'Database administration portal probe' },
+    { pattern: /\/(eval-|eval\(|shell\.php|cmd\.php|c99\.php)/i, reason: 'Webshell / Remote Code Execution probe' },
+    { pattern: /\.(bak|sql|tar|gz|zip|config|key|pem|env)$/i, reason: 'Backup or secret credential file probe' },
+    { pattern: /\/server$/i, reason: 'Internal server route enumeration scan' }
+  ];
+
+  for (const item of vulnProbePatterns) {
+    if (item.pattern.test(visitPath)) {
+      trafficCategory = 'Threat';
+      threatType = 'Vulnerability Probe';
+      threatSeverity = 'Critical';
+      threatReason = item.reason;
+      return { trafficCategory, threatType, threatSeverity, threatReason };
+    }
+  }
+
+  // 2. Check for Path Traversal & Injection Attempts
+  const injectionPatterns = [
+    { pattern: /(\.\.\/|\.\.%2f|%2e%2e%2f)/i, reason: 'Directory Path Traversal attack pattern (../)' },
+    { pattern: /(union\s+select|select\s+.*\s+from|drop\s+table|insert\s+into|exec\s*\(|or\s+1=1)/i, reason: 'SQL Injection attack payload' },
+    { pattern: /(<script|javascript:|onerror\s*=|onload\s*=)/i, reason: 'Cross-Site Scripting (XSS) payload' }
+  ];
+
+  for (const item of injectionPatterns) {
+    if (item.pattern.test(visitPath)) {
+      trafficCategory = 'Threat';
+      threatType = 'Path Traversal';
+      threatSeverity = 'High';
+      threatReason = item.reason;
+      return { trafficCategory, threatType, threatSeverity, threatReason };
+    }
+  }
+
+  // 3. Check User-Agent for known malicious security scanners
+  const maliciousScannerUAs = [/sqlmap/i, /nikto/i, /nmap/i, /masscan/i, /zgrab/i, /gobuster/i, /dirbuster/i, /wpscan/i, /nessus/i, /openvas/i, /censys/i];
+  if (maliciousScannerUAs.some(rx => rx.test(uaLower))) {
+    trafficCategory = 'Threat';
+    threatType = 'Suspicious Scanner';
+    threatSeverity = 'High';
+    threatReason = 'Malicious security scanner / automated reconnaissance user-agent';
+    return { trafficCategory, threatType, threatSeverity, threatReason };
+  }
+
+  // 4. Rate Burst / DDoS Attack Detection (IP rate check in past 10 seconds)
+  if (ip) {
+    const tenSecAgo = new Date(Date.now() - 10000);
+    const recentRequestsFromIpCount = await PageVisit.countDocuments({
+      ip,
+      timestamp: { $gte: tenSecAgo }
+    });
+    if (recentRequestsFromIpCount >= 5) {
+      trafficCategory = 'Threat';
+      threatType = 'DDoS Burst';
+      threatSeverity = 'Critical';
+      threatReason = `DDoS burst traffic detected (${recentRequestsFromIpCount + 1} req/10s from IP ${ip})`;
+      return { trafficCategory, threatType, threatSeverity, threatReason };
+    }
+  }
+
+  // 5. Check if Standard Bot / Crawler
+  if (/bot|crawler|spider|crawling|slurp|seek|mediapartners|googlebot|bingbot|yandexbot|duckduckbot/i.test(uaLower)) {
+    trafficCategory = 'Bot';
+    threatType = 'None';
+    threatSeverity = 'Low';
+    threatReason = 'Search engine crawler or benign web spider';
+    return { trafficCategory, threatType, threatSeverity, threatReason };
+  }
+
+  return { trafficCategory, threatType, threatSeverity, threatReason };
+}
+
+const geoip = require('geoip-lite');
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+function lookupGeoLocation(ip) {
+  if (!ip) return { country: 'Unknown', countryCode: '', region: '', city: '' };
+  try {
+    const geo = geoip.lookup(ip);
+    if (!geo || !geo.country) return { country: 'Unknown', countryCode: '', region: '', city: '' };
+    let countryName = geo.country;
+    try {
+      countryName = regionNames.of(geo.country) || geo.country;
+    } catch (e) {
+      countryName = geo.country;
+    }
+    return {
+      country: countryName,
+      countryCode: geo.country,
+      region: geo.region || '',
+      city: geo.city || ''
+    };
+  } catch (err) {
+    return { country: 'Unknown', countryCode: '', region: '', city: '' };
+  }
+}
+
+function sanitizeIpString(rawIp = '') {
+  if (!rawIp) return '';
+  const ignoredIPs = ['51.211.242.147', '127.0.0.1', '::1', 'localhost'];
+  const parts = rawIp.split(',').map(p => p.trim()).filter(Boolean);
+  const cleanParts = parts.filter(ip => 
+    !ignoredIPs.includes(ip) &&
+    !ip.startsWith('::ffff:127.0.0.1')
+  );
+  return cleanParts.length > 0 ? cleanParts[0] : '';
+}
+
 async function recordVisit(data) {
   try {
-    const { siteId = 'default', path: visitPath, fullUrl, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, userAgent, ip } = data;
-    if (!visitPath || visitPath.startsWith('/api') || visitPath.includes('.')) {
+    const { siteId = 'default', path: visitPath, fullUrl, referrer, utm_source, utm_medium, utm_campaign, utm_content, utm_term, userAgent, ip: rawIp } = data;
+    if (!visitPath || visitPath.startsWith('/api')) {
       return;
     }
+    const cleanIp = sanitizeIpString(rawIp);
+    // Reject if no valid client IP remains (e.g. sole proxy IP 51.211.242.147 or localhost)
+    if (!cleanIp) {
+      return;
+    }
+    // Only skip standard static web media assets (css, js, images, fonts)
+    if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|map)$/i.test(visitPath)) {
+      return;
+    }
+
     await connectToDatabase();
 
     // Deduplication check: same IP + path + siteId within 3 seconds
     const threeSecAgo = new Date(Date.now() - 3000);
     const existing = await PageVisit.findOne({
       siteId,
-      ip,
+      ip: cleanIp,
       path: visitPath,
       timestamp: { $gte: threeSecAgo },
     });
 
     if (existing) return;
 
-    const deviceType = detectDeviceType(userAgent);
+    const analysis = await analyzeRequestTraffic(visitPath, userAgent, cleanIp, new Date(), siteId);
+    const deviceType = analysis.trafficCategory === 'Bot' ? 'Bot' : detectDeviceType(userAgent);
     const browser = detectBrowser(userAgent);
+    const geo = lookupGeoLocation(cleanIp);
 
     await PageVisit.create({
       siteId,
@@ -97,9 +250,17 @@ async function recordVisit(data) {
       utm_content: utm_content || '',
       utm_term: utm_term || '',
       userAgent: userAgent || '',
-      ip: ip || '',
+      ip: cleanIp || '',
+      country: geo.country,
+      countryCode: geo.countryCode,
+      region: geo.region,
+      city: geo.city,
       deviceType,
       browser,
+      trafficCategory: analysis.trafficCategory,
+      threatType: analysis.threatType,
+      threatSeverity: analysis.threatSeverity,
+      threatReason: analysis.threatReason,
       timestamp: new Date(),
     });
   } catch (err) {
@@ -225,7 +386,9 @@ app.get('/api/admin/analytics', async (req, res) => {
     await connectToDatabase();
     const { siteId } = req.query;
 
-    const filter = {};
+    const filter = {
+      ip: { $nin: ['127.0.0.1', '::1', 'localhost', '::ffff:127.0.0.1'] }
+    };
     if (siteId && siteId !== 'all') {
       filter.siteId = siteId;
     }
@@ -241,12 +404,61 @@ app.get('/api/admin/analytics', async (req, res) => {
     // List of distinct projects
     const availableSites = await PageVisit.distinct('siteId');
 
+    // Traffic Classification Analysis (Genuine vs Bot vs Threat)
+    const trafficAgg = await PageVisit.aggregate([
+      { $match: filter },
+      { $group: { _id: "$trafficCategory", count: { $sum: 1 } } }
+    ]);
+
+    const trafficBreakdown = { Genuine: 0, Bot: 0, Threat: 0 };
+    trafficAgg.forEach((t) => {
+      const categoryKey = t._id || 'Genuine';
+      if (trafficBreakdown.hasOwnProperty(categoryKey)) {
+        trafficBreakdown[categoryKey] = t.count;
+      }
+    });
+
+    const threatsCount = trafficBreakdown.Threat || 0;
+
+    // Critical Security Threats & Probes (Top recent 20)
+    const criticalAlerts = await PageVisit.find({ ...filter, trafficCategory: 'Threat' })
+      .sort({ timestamp: -1 })
+      .limit(20)
+      .select('siteId path fullUrl referrer deviceType browser ip timestamp trafficCategory threatType threatSeverity threatReason userAgent');
+
+    // Top Probed Threat Paths
+    const topThreatPathsAgg = await PageVisit.aggregate([
+      { $match: { ...filter, trafficCategory: 'Threat' } },
+      { $group: { _id: { path: "$path", threatType: "$threatType", reason: "$threatReason" }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    const topThreatPaths = topThreatPathsAgg.map(item => ({
+      path: item._id.path,
+      threatType: item._id.threatType || 'Vulnerability Probe',
+      reason: item._id.reason || 'Probing restricted route',
+      count: item.count
+    }));
+
+    // Top Attacking IPs
+    const topThreatIPsAgg = await PageVisit.aggregate([
+      { $match: { ...filter, trafficCategory: 'Threat' } },
+      { $group: { _id: "$ip", count: { $sum: 1 }, lastThreatType: { $last: "$threatType" } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    const topThreatIPs = topThreatIPsAgg.map(item => ({
+      ip: item._id || 'Unknown',
+      count: item.count,
+      lastThreatType: item.lastThreatType || 'Probing Attempt'
+    }));
+
     // Top Pages
     const topPagesAgg = await PageVisit.aggregate([
       { $match: filter },
       { $group: { _id: "$path", count: { $sum: 1 }, lastVisited: { $max: "$timestamp" } } },
       { $sort: { count: -1 } },
-      { $limit: 15 }
+      { $limit: 25 }
     ]);
 
     const topPages = topPagesAgg.map((item) => ({
@@ -296,7 +508,7 @@ app.get('/api/admin/analytics', async (req, res) => {
       { $match: { ...filter, referrer: { $ne: '' } } },
       { $group: { _id: "$referrer", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
-      { $limit: 8 }
+      { $limit: 25 }
     ]);
     const topReferrers = referrerAgg.map(r => ({ referrer: r._id, count: r.count }));
 
@@ -314,11 +526,25 @@ app.get('/api/admin/analytics', async (req, res) => {
       hourlyDistribution.push({ hour: hourLabel, count });
     }
 
-    // Recent 50 visits (increased for better activity view)
+    // Top Countries & Geographic Distribution
+    const topCountriesAgg = await PageVisit.aggregate([
+      { $match: filter },
+      { $group: { _id: { country: "$country", countryCode: "$countryCode" }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    const topCountries = topCountriesAgg.map(item => ({
+      country: item._id.country || 'Unknown',
+      countryCode: item._id.countryCode || '',
+      count: item.count,
+      percentage: totalVisits > 0 ? Math.round((item.count / totalVisits) * 100) : 0,
+    }));
+
+    // Recent visits
     const recentVisits = await PageVisit.find(filter)
       .sort({ timestamp: -1 })
       .limit(50)
-      .select('siteId path fullUrl referrer utm_source utm_medium utm_campaign deviceType browser ip timestamp');
+      .select('siteId path fullUrl referrer utm_source utm_medium utm_campaign deviceType browser ip country countryCode region city timestamp trafficCategory threatType threatSeverity threatReason');
 
     return res.json({
       success: true,
@@ -327,6 +553,12 @@ app.get('/api/admin/analytics', async (req, res) => {
         uniqueVisitors,
         todayVisits,
         availableSites,
+        trafficBreakdown,
+        threatsCount,
+        criticalAlerts,
+        topThreatPaths,
+        topThreatIPs,
+        topCountries,
         topPages,
         utmCampaigns,
         deviceBreakdown,
@@ -334,7 +566,7 @@ app.get('/api/admin/analytics', async (req, res) => {
         topReferrers,
         hourlyDistribution,
         recentVisits,
-      },
+      }
     });
   } catch (error) {
     console.error("GET /api/admin/analytics Error:", error);
@@ -346,17 +578,22 @@ app.get('/api/admin/analytics', async (req, res) => {
 app.get('/api/admin/history', async (req, res) => {
   try {
     await connectToDatabase();
-    const { siteId, search, device, page = 1, limit = 10 } = req.query;
+    const { siteId, search, device, category, page = 1, limit = 10 } = req.query;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
 
-    const filter = {};
+    const filter = {
+      ip: { $nin: ['127.0.0.1', '::1', 'localhost', '::ffff:127.0.0.1'] }
+    };
     if (siteId && siteId !== 'all') {
       filter.siteId = siteId;
     }
     if (device && device !== 'all') {
       filter.deviceType = new RegExp(`^${device}$`, 'i');
+    }
+    if (category && category !== 'all') {
+      filter.trafficCategory = category;
     }
     if (search && search.trim() !== '') {
       const regex = new RegExp(search.trim(), 'i');
@@ -364,9 +601,13 @@ app.get('/api/admin/history', async (req, res) => {
         { path: regex },
         { siteId: regex },
         { ip: regex },
+        { country: regex },
+        { city: regex },
         { browser: regex },
         { utm_source: regex },
-        { utm_campaign: regex }
+        { utm_campaign: regex },
+        { threatType: regex },
+        { threatReason: regex }
       ];
     }
 
@@ -378,7 +619,7 @@ app.get('/api/admin/history', async (req, res) => {
       .sort({ timestamp: -1 })
       .skip(skip)
       .limit(limitNum)
-      .select('siteId path fullUrl referrer utm_source utm_medium utm_campaign deviceType browser ip timestamp');
+      .select('siteId path fullUrl referrer utm_source utm_medium utm_campaign deviceType browser ip country countryCode region city timestamp trafficCategory threatType threatSeverity threatReason');
 
     return res.json({
       success: true,
@@ -393,45 +634,6 @@ app.get('/api/admin/history', async (req, res) => {
   } catch (error) {
     console.error("GET /api/admin/history Error:", error);
     return res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// 3. Simulate Traffic Visit Endpoint
-app.post('/api/admin/simulate', async (req, res) => {
-  try {
-    const { siteId } = req.body || {};
-    const samplePaths = ['/', '/pricing', '/features/analytics', '/docs/getting-started', '/app/dashboard', '/blog/v2-announcement', '/checkout/success'];
-    const sampleSites = ['consoleapi-products', 'outsystems-devtool', 'hostpanel'];
-    const sampleSources = ['google', 'twitter', 'github', 'newsletter', 'linkedin', 'direct'];
-    const sampleCampaigns = ['summer_launch', 'v2_promo', 'dev_digest', 'black_friday'];
-    const sampleDevices = ['Desktop', 'Mobile', 'Tablet'];
-    const sampleBrowsers = ['Chrome', 'Safari', 'Firefox', 'Edge'];
-
-    const chosenSite = siteId && siteId !== 'all' ? siteId : sampleSites[Math.floor(Math.random() * sampleSites.length)];
-    const chosenPath = samplePaths[Math.floor(Math.random() * samplePaths.length)];
-    const chosenSource = sampleSources[Math.floor(Math.random() * sampleSources.length)];
-    const chosenCampaign = sampleCampaigns[Math.floor(Math.random() * sampleCampaigns.length)];
-    const chosenDevice = sampleDevices[Math.floor(Math.random() * sampleDevices.length)];
-    const chosenBrowser = sampleBrowsers[Math.floor(Math.random() * sampleBrowsers.length)];
-    const randomIp = `192.168.${Math.floor(Math.random() * 5)}.${Math.floor(Math.random() * 250 + 1)}`;
-
-    await recordVisit({
-      siteId: chosenSite,
-      path: chosenPath,
-      fullUrl: `https://${chosenSite}.com${chosenPath}?utm_source=${chosenSource}&utm_campaign=${chosenCampaign}`,
-      referrer: chosenSource === 'direct' ? '' : `https://${chosenSource}.com`,
-      utm_source: chosenSource === 'direct' ? '' : chosenSource,
-      utm_medium: chosenSource === 'direct' ? '' : 'campaign',
-      utm_campaign: chosenSource === 'direct' ? '' : chosenCampaign,
-      deviceType: chosenDevice,
-      browser: chosenBrowser,
-      ip: randomIp,
-      userAgent: `Simulated/${chosenBrowser} (${chosenDevice})`,
-    });
-
-    return res.json({ success: true, message: `Simulated visit generated for ${chosenSite}` });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

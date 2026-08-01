@@ -10,7 +10,22 @@ export interface PageVisitItem {
   deviceType: 'Desktop' | 'Mobile' | 'Tablet' | 'Bot';
   browser: string;
   ip: string;
+  country?: string;
+  countryCode?: string;
+  region?: string;
+  city?: string;
+  trafficCategory?: 'Genuine' | 'Bot' | 'Threat';
+  threatType?: 'None' | 'Vulnerability Probe' | 'Path Traversal' | 'DDoS Burst' | 'Suspicious Scanner';
+  threatSeverity?: 'Low' | 'Medium' | 'High' | 'Critical';
+  threatReason?: string;
   timestamp: string | Date;
+}
+
+export interface CountryMetric {
+  country: string;
+  countryCode: string;
+  count: number;
+  percentage: number;
 }
 
 export interface TopPageMetric {
@@ -33,6 +48,25 @@ export interface DeviceBreakdown {
   Bot: number;
 }
 
+export interface TrafficBreakdown {
+  Genuine: number;
+  Bot: number;
+  Threat: number;
+}
+
+export interface ThreatPathMetric {
+  path: string;
+  threatType: string;
+  reason: string;
+  count: number;
+}
+
+export interface ThreatIPMetric {
+  ip: string;
+  count: number;
+  lastThreatType: string;
+}
+
 export interface BrowserMetric {
   browser: string;
   count: number;
@@ -53,6 +87,12 @@ export interface AnalyticsSummary {
   uniqueVisitors: number;
   todayVisits: number;
   availableSites: string[];
+  trafficBreakdown?: TrafficBreakdown;
+  threatsCount?: number;
+  criticalAlerts?: PageVisitItem[];
+  topThreatPaths?: ThreatPathMetric[];
+  topThreatIPs?: ThreatIPMetric[];
+  topCountries?: CountryMetric[];
   topPages: TopPageMetric[];
   utmCampaigns: UtmCampaignMetric[];
   deviceBreakdown: DeviceBreakdown;
