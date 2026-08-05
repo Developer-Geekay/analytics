@@ -40,6 +40,9 @@
             <button mat-button [class.nav-link-active]="mainNav() === 'dashboard'" (click)="setMainNav('dashboard')">
               <mat-icon>dashboard</mat-icon> Dashboard
             </button>
+            <button mat-button [class.nav-link-active]="mainNav() === 'activity'" (click)="setMainNav('activity')">
+              <mat-icon>history</mat-icon> Activity Log
+            </button>
             <button mat-button [class.nav-link-active]="mainNav() === 'apps'" (click)="setMainNav('apps')">
               <mat-icon>apps</mat-icon> Apps & Integration
             </button>
@@ -65,10 +68,51 @@
         <button mat-icon-button (click)="toggleTheme()" [matTooltip]="currentTheme() === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
           <mat-icon>{{ currentTheme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
         </button>
+
+        <!-- Mobile Hamburger Toggle Button -->
+        @if (authService.isAuthenticated()) {
+          <button mat-icon-button class="mobile-menu-toggle-btn" (click)="toggleMobileMenu()" aria-label="Toggle Navigation Menu">
+            <mat-icon>{{ isMobileMenuOpen() ? 'close' : 'menu' }}</mat-icon>
+          </button>
+        }
       </div>
 
     </div>
   </mat-toolbar>
+
+  <!-- Mobile Slide-Down Navigation Overlay -->
+  @if (isMobileMenuOpen() && authService.isAuthenticated()) {
+    <div class="mobile-nav-backdrop" (click)="isMobileMenuOpen.set(false)"></div>
+    <div class="mobile-nav-drawer">
+      <div class="mobile-nav-items">
+        <button mat-button class="mobile-nav-item" [class.active]="mainNav() === 'dashboard'" (click)="setMainNav('dashboard')">
+          <mat-icon>dashboard</mat-icon> Dashboard
+        </button>
+        <button mat-button class="mobile-nav-item" [class.active]="mainNav() === 'activity'" (click)="setMainNav('activity')">
+          <mat-icon>history</mat-icon> Activity Log
+        </button>
+        <button mat-button class="mobile-nav-item" [class.active]="mainNav() === 'apps'" (click)="setMainNav('apps')">
+          <mat-icon>apps</mat-icon> Apps & Integration
+        </button>
+        <button mat-button class="mobile-nav-item" [class.active]="mainNav() === 'settings'" (click)="setMainNav('settings')">
+          <mat-icon>settings</mat-icon> Settings
+        </button>
+        <button mat-button class="mobile-nav-item" [class.active]="mainNav() === 'docs'" (click)="setMainNav('docs')">
+          <mat-icon>auto_stories</mat-icon> Documentation
+        </button>
+      </div>
+
+      <div class="mobile-nav-footer">
+        <div class="user-profile-badge" style="display: flex !important; width: 100%; justify-content: center; margin-bottom: 8px;">
+          <mat-icon>admin_panel_settings</mat-icon>
+          {{ authService.currentUser()?.username || 'admin' }}
+        </div>
+        <button mat-stroked-button color="warn" (click)="performLogout()" style="width: 100%;">
+          <mat-icon>logout</mat-icon> Sign Out Admin
+        </button>
+      </div>
+    </div>
+  }
 
   <!-- Main Container -->
   <main class="app-main-content">
@@ -156,28 +200,30 @@
           <!-- Critical Security Threat Alert Banner (Shown when threats detected) -->
           @if (summary.threatsCount && summary.threatsCount > 0 && !dismissAlertBanner()) {
             <div class="critical-threat-alert-banner">
-              <div class="alert-banner-left">
-                <div class="alert-pulse-icon-box">
-                  <mat-icon color="warn">gpp_maybe</mat-icon>
+              <div class="alert-banner-top">
+                <div class="alert-banner-left">
+                  <div class="alert-pulse-icon-box">
+                    <mat-icon color="warn">gpp_maybe</mat-icon>
+                  </div>
+                  <div>
+                    <h4 class="alert-title">
+                      <span>CRITICAL SECURITY THREAT ALERT</span>
+                      <span class="threat-badge critical">{{ summary.threatsCount }} THREAT PROBES DETECTED</span>
+                    </h4>
+                    <p class="alert-subtitle">
+                      Automated vulnerability scanning or malicious probing captured on path 
+                      <code style="color:#f87171;">{{ (summary.topThreatPaths && summary.topThreatPaths[0]) ? summary.topThreatPaths[0].path : '/.env' }}</code>.
+                      Analysis active across multi-tenant traffic.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 class="alert-title">
-                    <span>CRITICAL SECURITY THREAT ALERT</span>
-                    <span class="threat-badge critical">{{ summary.threatsCount }} THREAT PROBES DETECTED</span>
-                  </h4>
-                  <p class="alert-subtitle">
-                    Automated vulnerability scanning or malicious probing captured on path 
-                    <code style="color:#f87171;">{{ (summary.topThreatPaths && summary.topThreatPaths[0]) ? summary.topThreatPaths[0].path : '/.env' }}</code>.
-                    Analysis active across multi-tenant traffic.
-                  </p>
-                </div>
-              </div>
-              <div class="control-bar-actions">
-                <button mat-flat-button color="warn" (click)="setTab('threats')">
-                  <mat-icon>shield</mat-icon> Inspect Security Threats
-                </button>
-                <button mat-icon-button (click)="dismissAlertBanner.set(true)" matTooltip="Dismiss Alert">
+                <button mat-icon-button class="alert-dismiss-btn" (click)="dismissAlertBanner.set(true)" matTooltip="Dismiss Alert">
                   <mat-icon>close</mat-icon>
+                </button>
+              </div>
+              <div class="alert-banner-bottom">
+                <button mat-flat-button color="warn" class="btn-inspect-threats" (click)="setTab('threats')">
+                  <mat-icon>shield</mat-icon> Inspect Security Threats
                 </button>
               </div>
             </div>
@@ -189,9 +235,15 @@
               <mat-form-field appearance="outline" class="control-bar-select">
                 <mat-label>Select App Tenant</mat-label>
                 <mat-select [ngModel]="analyticsService.selectedSiteId()" (ngModelChange)="onSiteChange($event)">
+                  <mat-select-trigger>
+                    <span class="selected-tenant-name">{{ getAppDisplayName(analyticsService.selectedSiteId()) }}</span>
+                  </mat-select-trigger>
+
                   <mat-option value="all">All Projects (Global)</mat-option>
-                  @for (site of analyticsService.summary()?.availableSites || []; track site) {
-                    <mat-option [value]="site">{{ site }}</mat-option>
+                  @for (appOpt of allTenantOptions(); track appOpt.siteId) {
+                    <mat-option [value]="appOpt.siteId">
+                      <span class="tenant-option-name">{{ appOpt.name }}</span>
+                    </mat-option>
                   }
                 </mat-select>
               </mat-form-field>
@@ -274,71 +326,93 @@
               <mat-tab label="Overview Summary">
                 <div class="tab-content-container">
 
-                  <!-- Traffic Classification Overview Bar -->
-                  <div class="overview-metric-card" style="margin-bottom: 20px;">
-                    <div class="overview-card-header" style="margin-bottom: 8px;">
-                      <div class="kpi-icon-badge kpi-icon-badge-cyan">
-                        <mat-icon>analytics</mat-icon>
-                      </div>
-                      <div>
-                        <h3 class="overview-card-title">Traffic Analysis & Threat Classification</h3>
-                        <p class="brand-subtitle" style="margin: 0;">Genuine Visitors vs Search Bots vs Security Threat Probes</p>
-                      </div>
-                    </div>
+                  <!-- Accordion-Based Overview Summary (Collapsed by Default) -->
+                  <mat-accordion multi="true" class="custom-accordion">
 
-                    <div class="traffic-distribution-bar">
-                      <div class="bar-segment-genuine" [style.width.%]="getGenuinePercentage()" matTooltip="Genuine: {{ getGenuinePercentage() }}%"></div>
-                      <div class="bar-segment-bot" [style.width.%]="getBotPercentage()" matTooltip="Bot: {{ getBotPercentage() }}%"></div>
-                      <div class="bar-segment-threat" [style.width.%]="getThreatPercentage()" matTooltip="Threat: {{ getThreatPercentage() }}%"></div>
-                    </div>
+                    <!-- Panel 1: Traffic Analysis & Threat Classification -->
+                    <mat-expansion-panel [expanded]="false">
+                      <mat-expansion-panel-header class="custom-panel-header">
+                        <mat-panel-title class="accordion-title-box">
+                          <div class="kpi-icon-badge kpi-icon-badge-cyan" style="width: 32px; height: 32px; flex-shrink: 0;">
+                            <mat-icon style="font-size: 18px;">analytics</mat-icon>
+                          </div>
+                          <div class="accordion-header-text">
+                            <span class="accordion-main-title">Traffic Analysis & Threat Classification</span>
+                            <span class="spec-chip chip-cyan mobile-chip-inline">{{ summary.totalVisits | number }} Total Visits</span>
+                          </div>
+                        </mat-panel-title>
+                        <mat-panel-description class="desktop-chip-box">
+                          <span class="spec-chip chip-cyan">{{ summary.totalVisits | number }} Total Visits</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
 
-                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; font-weight: 600;">
-                      <span style="color: #34d399;">● Genuine Users: {{ summary.trafficBreakdown?.Genuine || 0 }} ({{ getGenuinePercentage() }}%)</span>
-                      <span style="color: #60a5fa;">● Bots / Crawlers: {{ summary.trafficBreakdown?.Bot || 0 }} ({{ getBotPercentage() }}%)</span>
-                      <span style="color: #f87171;">● Security Threats: {{ summary.trafficBreakdown?.Threat || 0 }} ({{ getThreatPercentage() }}%)</span>
-                    </div>
-                  </div>
-
-                  <div class="content-grid-2col">
-
-                    <!-- Top Visited Pages (SCROLLABLE to fix Image 2 layout overflow) -->
-                    <div class="overview-metric-card">
-                      <div class="overview-card-header">
-                        <div class="kpi-icon-badge kpi-icon-badge-cyan">
-                          <mat-icon>description</mat-icon>
-                        </div>
-                        <h3 class="overview-card-title">Top Visited Pages</h3>
+                      <div class="traffic-distribution-bar" style="margin: 16px 0 12px 0;">
+                        <div class="bar-segment-genuine" [style.width.%]="getGenuinePercentage()" matTooltip="Genuine: {{ getGenuinePercentage() }}%"></div>
+                        <div class="bar-segment-bot" [style.width.%]="getBotPercentage()" matTooltip="Bot: {{ getBotPercentage() }}%"></div>
+                        <div class="bar-segment-threat" [style.width.%]="getThreatPercentage()" matTooltip="Threat: {{ getThreatPercentage() }}%"></div>
                       </div>
 
-                      <div class="scrollable-card-body">
+                      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 600; flex-wrap: wrap; gap: 10px;">
+                        <span style="color: #34d399;">● Genuine Users: {{ summary.trafficBreakdown?.Genuine || 0 }} ({{ getGenuinePercentage() }}%)</span>
+                        <span style="color: #60a5fa;">● Bots / Crawlers: {{ summary.trafficBreakdown?.Bot || 0 }} ({{ getBotPercentage() }}%)</span>
+                        <span style="color: #f87171;">● Security Threats: {{ summary.trafficBreakdown?.Threat || 0 }} ({{ getThreatPercentage() }}%)</span>
+                      </div>
+                    </mat-expansion-panel>
+
+                    <!-- Panel 2: Top Visited Pages & Routes -->
+                    <mat-expansion-panel [expanded]="false">
+                      <mat-expansion-panel-header class="custom-panel-header">
+                        <mat-panel-title class="accordion-title-box">
+                          <div class="kpi-icon-badge kpi-icon-badge-cyan" style="width: 32px; height: 32px; flex-shrink: 0;">
+                            <mat-icon style="font-size: 18px;">description</mat-icon>
+                          </div>
+                          <div class="accordion-header-text">
+                            <span class="accordion-main-title">Top Visited Pages & Routes</span>
+                            <span class="spec-chip chip-purple mobile-chip-inline">{{ (summary.topPages || []).length }} Active Routes</span>
+                          </div>
+                        </mat-panel-title>
+                        <mat-panel-description class="desktop-chip-box">
+                          <span class="spec-chip chip-purple">{{ (summary.topPages || []).length }} Active Routes</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
+
+                      <div style="margin-top: 12px;">
                         @for (page of summary.topPages; track page.path) {
                           <div class="metric-row-item">
                             <div class="metric-row-header">
                               <code class="metric-path-code">{{ page.path }}</code>
-                              <span class="metric-count-text">{{ page.count }} {{ page.count === 1 ? 'visit' : 'visits' }}</span>
+                              <span class="metric-count-text">{{ page.count }} {{ page.count === 1 ? 'visit' : 'visits' }} ({{ page.percentage }}%)</span>
                             </div>
                             <div class="metric-progress-track">
-                              <div class="metric-progress-fill" [style.width.%]="(page.count / getMaxPageCount(summary.topPages)) * 100"></div>
+                              <div class="metric-progress-fill" [style.width.%]="page.percentage"></div>
                             </div>
                           </div>
                         }
                       </div>
-                    </div>
+                    </mat-expansion-panel>
 
-                    <!-- Top Referrers (SCROLLABLE to fix Image 2 layout overflow) -->
-                    <div class="overview-metric-card">
-                      <div class="overview-card-header">
-                        <div class="kpi-icon-badge kpi-icon-badge-purple">
-                          <mat-icon>link</mat-icon>
-                        </div>
-                        <h3 class="overview-card-title">Top Traffic Sources</h3>
-                      </div>
+                    <!-- Panel 3: Top Traffic Sources & Referrers -->
+                    <mat-expansion-panel [expanded]="false">
+                      <mat-expansion-panel-header class="custom-panel-header">
+                        <mat-panel-title class="accordion-title-box">
+                          <div class="kpi-icon-badge kpi-icon-badge-purple" style="width: 32px; height: 32px; flex-shrink: 0;">
+                            <mat-icon style="font-size: 18px;">link</mat-icon>
+                          </div>
+                          <div class="accordion-header-text">
+                            <span class="accordion-main-title">Top Traffic Sources & Referrers</span>
+                            <span class="spec-chip chip-cyan mobile-chip-inline">{{ (summary.topReferrers || []).length }} Traffic Sources</span>
+                          </div>
+                        </mat-panel-title>
+                        <mat-panel-description class="desktop-chip-box">
+                          <span class="spec-chip chip-cyan">{{ (summary.topReferrers || []).length }} Traffic Sources</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
 
-                      <div class="scrollable-card-body">
+                      <div style="margin-top: 12px;">
                         @for (ref of summary.topReferrers || []; track ref.referrer) {
                           <div class="metric-row-item">
                             <div class="metric-row-header">
-                              <code class="metric-path-code">{{ ref.referrer || 'Direct / Bookmark' }}</code>
+                              <code class="metric-path-code">{{ ref.referrer || 'Direct / Bookmark / Internal' }}</code>
                               <span class="metric-count-text">{{ ref.count }} {{ ref.count === 1 ? 'visit' : 'visits' }}</span>
                             </div>
                             <div class="metric-progress-track">
@@ -347,22 +421,30 @@
                           </div>
                         }
                       </div>
-                    </div>
+                    </mat-expansion-panel>
 
-                    <!-- Top Countries & Geographic Distribution -->
-                    <div class="overview-metric-card">
-                      <div class="overview-card-header">
-                        <div class="kpi-icon-badge kpi-icon-badge-emerald">
-                          <mat-icon>public</mat-icon>
-                        </div>
-                        <h3 class="overview-card-title">Top Countries & Regions</h3>
-                      </div>
+                    <!-- Panel 4: Top Countries & Geographical Distribution -->
+                    <mat-expansion-panel [expanded]="false">
+                      <mat-expansion-panel-header class="custom-panel-header">
+                        <mat-panel-title class="accordion-title-box">
+                          <div class="kpi-icon-badge kpi-icon-badge-emerald" style="width: 32px; height: 32px; flex-shrink: 0;">
+                            <mat-icon style="font-size: 18px;">public</mat-icon>
+                          </div>
+                          <div class="accordion-header-text">
+                            <span class="accordion-main-title">Top Countries & Geographical Regions</span>
+                            <span class="spec-chip chip-emerald mobile-chip-inline">{{ (summary.topCountries || []).length }} Countries Flagged</span>
+                          </div>
+                        </mat-panel-title>
+                        <mat-panel-description class="desktop-chip-box">
+                          <span class="spec-chip chip-emerald">{{ (summary.topCountries || []).length }} Countries Flagged</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
 
-                      <div class="scrollable-card-body">
+                      <div style="margin-top: 12px;">
                         @for (country of summary.topCountries || []; track country.country) {
                           <div class="metric-row-item">
                             <div class="metric-row-header">
-                              <span style="font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                              <span style="font-weight: 600; display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 1.2rem;">{{ getCountryFlag(country.countryCode) }}</span>
                                 {{ country.country }}
                               </span>
@@ -374,9 +456,9 @@
                           </div>
                         }
                       </div>
-                    </div>
+                    </mat-expansion-panel>
 
-                  </div>
+                  </mat-accordion>
 
                 </div>
               </mat-tab>
@@ -602,96 +684,284 @@
                 </div>
               </mat-tab>
 
-              <!-- Full Activity History Tab -->
-              <mat-tab label="Full Activity Log">
-                <div class="tab-content-container">
-
-                  <!-- Search & Category Filters -->
-                  <div class="control-bar-card">
-                    <div class="control-bar-left">
-                      <mat-form-field appearance="outline" class="control-bar-select">
-                        <mat-label>Search logs</mat-label>
-                        <input matInput [ngModel]="searchQuery()" (ngModelChange)="onSearchChange($event)" placeholder="Search URL, IP, or path...">
-                        <mat-icon matSuffix>search</mat-icon>
-                      </mat-form-field>
-                    </div>
-
-                    <div class="control-bar-actions">
-                      <mat-form-field appearance="outline" class="control-bar-select">
-                        <mat-label>Category Analysis</mat-label>
-                        <mat-select [ngModel]="categoryFilter()" (ngModelChange)="onCategoryFilterChange($event)">
-                          <mat-option value="all">All Traffic Categories</mat-option>
-                          <mat-option value="Genuine">Genuine Visitors Only</mat-option>
-                          <mat-option value="Bot">Bots & Crawlers Only</mat-option>
-                          <mat-option value="Threat">Security Threats & DDoS Only</mat-option>
-                        </mat-select>
-                      </mat-form-field>
-
-                      <mat-form-field appearance="outline" class="control-bar-select">
-                        <mat-label>Device Filter</mat-label>
-                        <mat-select [ngModel]="deviceFilter()" (ngModelChange)="onDeviceFilterChange($event)">
-                          <mat-option value="all">All Devices</mat-option>
-                          <mat-option value="desktop">Desktop</mat-option>
-                          <mat-option value="mobile">Mobile</mat-option>
-                          <mat-option value="tablet">Tablet</mat-option>
-                        </mat-select>
-                      </mat-form-field>
-                    </div>
-                  </div>
-
-                  <!-- Table -->
-                  <div class="data-table-container">
-                    <table class="custom-data-table">
-                      <thead>
-                        <tr>
-                          <th>Local Timestamp</th>
-                          <th>App Tenant</th>
-                          <th>Page Path</th>
-                          <th>Category Analysis</th>
-                          <th>Device / OS</th>
-                          <th>Visitor IP</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (visit of historyVisits(); track visit._id) {
-                          <tr>
-                            <td><code>{{ formatDate(visit.timestamp) }}</code></td>
-                            <td><strong>{{ visit.siteId }}</strong></td>
-                            <td><code>{{ visit.path }}</code></td>
-                            <td>
-                              <span class="traffic-category-pill" [ngClass]="(visit.trafficCategory || 'Genuine').toLowerCase()">
-                                {{ visit.trafficCategory || 'Genuine' }}
-                              </span>
-                              @if (visit.trafficCategory === 'Threat') {
-                                <span class="threat-badge critical" style="margin-left: 4px;">{{ visit.threatType || 'Probe' }}</span>
-                              }
-                            </td>
-                            <td>{{ visit.deviceType }} ({{ visit.browser }})</td>
-                            <td>
-                              <code>{{ visit.ip }}</code>
-                              <span style="font-size: 0.85rem; margin-left: 6px;" [matTooltip]="visit.city ? visit.city + ', ' + visit.country : (visit.country || '')">
-                                {{ getCountryFlag(visit.countryCode) }} {{ visit.city ? visit.city + ', ' + visit.country : (visit.country || '') }}
-                              </span>
-                            </td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <!-- Pagination Footer -->
-                  <div class="table-pagination-footer">
-                    <span>Showing Page {{ historyPage() }} of {{ historyTotalPages() }} ({{ historyTotalCount() }} total visits)</span>
-                    <div class="control-bar-actions">
-                      <button mat-stroked-button [disabled]="historyPage() <= 1" (click)="goToPage(historyPage() - 1)">Previous</button>
-                      <button mat-stroked-button [disabled]="historyPage() >= historyTotalPages()" (click)="goToPage(historyPage() + 1)">Next</button>
-                    </div>
-                  </div>
-
-                </div>
-              </mat-tab>
-
             </mat-tab-group>
+          </div>
+
+        }
+
+        <!-- SECTION 2: DEDICATED FULL ACTIVITY LOG VIEW WITH ADVANCED FILTERS -->
+        @if (mainNav() === 'activity') {
+
+          <div>
+
+            <!-- Header Control Bar -->
+            <div class="control-bar-card">
+              <div>
+                <h2 class="brand-title" style="margin:0;">Activity Log & Traffic Audit</h2>
+                <p class="brand-subtitle" style="margin:4px 0 0 0;">Inspect, audit, search, and filter real-time page visit signals, security threat probes, and visitor metadata.</p>
+              </div>
+              <div class="control-bar-actions">
+                <button mat-stroked-button (click)="resetActivityFilters()" matTooltip="Reset All Filters">
+                  <mat-icon>restart_alt</mat-icon> Reset Filters
+                </button>
+                <button mat-stroked-button (click)="loadHistory()">
+                  <mat-icon [class.animate-spin]="isHistoryLoading()">refresh</mat-icon> Refresh Logs
+                </button>
+                <button mat-flat-button color="primary" (click)="downloadExport('csv')">
+                  <mat-icon>download</mat-icon> Export CSV
+                </button>
+              </div>
+            </div>
+
+            <!-- Advanced Multi-Filter Card -->
+            <mat-card class="filter-panel-card">
+              <div class="filter-panel-header">
+                <h3 class="overview-card-title" style="display: flex; align-items: center; gap: 8px;">
+                  <mat-icon color="primary">filter_list</mat-icon> Activity Log Filters
+                </h3>
+                <span class="spec-chip chip-purple">
+                  Showing {{ historyVisits().length }} of {{ historyTotalCount() | number }} visit records
+                </span>
+              </div>
+
+              <!-- Row 1: Full-Width Search Input -->
+              <div style="margin-bottom: 12px;">
+                <mat-form-field appearance="outline" style="width: 100%;">
+                  <mat-label>Search Activity Logs</mat-label>
+                  <input matInput [ngModel]="searchQuery()" (ngModelChange)="onSearchChange($event)" placeholder="Search URL path, visitor IP, country, referrer, or threat reason...">
+                  @if (searchQuery()) {
+                    <button mat-icon-button matSuffix (click)="onSearchChange('')"><mat-icon>close</mat-icon></button>
+                  } @else {
+                    <mat-icon matSuffix>search</mat-icon>
+                  }
+                </mat-form-field>
+              </div>
+
+              <!-- Row 2: Select Filter Dropdowns (Grid of 4) -->
+              <div class="filter-dropdowns-grid">
+                <!-- App Tenant -->
+                <mat-form-field appearance="outline">
+                  <mat-label>Filter App Tenant</mat-label>
+                  <mat-select [ngModel]="analyticsService.selectedSiteId()" (ngModelChange)="onSiteChange($event)">
+                    <mat-option value="all">All Projects (Global)</mat-option>
+                    @for (appOpt of allTenantOptions(); track appOpt.siteId) {
+                      <mat-option [value]="appOpt.siteId">{{ appOpt.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <!-- Traffic Category -->
+                <mat-form-field appearance="outline">
+                  <mat-label>Traffic Category</mat-label>
+                  <mat-select [ngModel]="categoryFilter()" (ngModelChange)="onCategoryFilterChange($event)">
+                    <mat-option value="all">All Categories</mat-option>
+                    <mat-option value="Genuine">Genuine Visitors</mat-option>
+                    <mat-option value="Bot">Bots & Crawlers</mat-option>
+                    <mat-option value="Threat">Security Threats & Probes</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <!-- Threat Classification -->
+                <mat-form-field appearance="outline">
+                  <mat-label>Threat Classification</mat-label>
+                  <mat-select [ngModel]="threatTypeFilter()" (ngModelChange)="onThreatTypeFilterChange($event)">
+                    <mat-option value="all">All Threat Types</mat-option>
+                    <mat-option value="Vulnerability Probe">Vulnerability Probe</mat-option>
+                    <mat-option value="Path Traversal">Path Traversal & Injection</mat-option>
+                    <mat-option value="Suspicious Scanner">Suspicious Scanner</mat-option>
+                    <mat-option value="DDoS Burst">DDoS Burst</mat-option>
+                    <mat-option value="None">Clean Traffic Only</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <!-- Device Type -->
+                <mat-form-field appearance="outline">
+                  <mat-label>Device Type</mat-label>
+                  <mat-select [ngModel]="deviceFilter()" (ngModelChange)="onDeviceFilterChange($event)">
+                    <mat-option value="all">All Devices</mat-option>
+                    <mat-option value="Desktop">Desktop</mat-option>
+                    <mat-option value="Mobile">Mobile</mat-option>
+                    <mat-option value="Tablet">Tablet</mat-option>
+                    <mat-option value="Bot">Bot / Crawler</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+
+              <!-- Row 3: Material Datepickers, Date Presets & Page Limit / Reset -->
+              <div class="filter-actions-row">
+
+                <!-- Material Datepickers (From Date & To Date) -->
+                <mat-form-field appearance="outline" class="filter-date-field">
+                  <mat-label>From Date</mat-label>
+                  <input matInput [matDatepicker]="startPicker" [ngModel]="startDateObj()" (ngModelChange)="onStartDateObjChange($event)" placeholder="MM/DD/YYYY">
+                  <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #startPicker></mat-datepicker>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="filter-date-field">
+                  <mat-label>To Date</mat-label>
+                  <input matInput [matDatepicker]="endPicker" [ngModel]="endDateObj()" (ngModelChange)="onEndDateObjChange($event)" placeholder="MM/DD/YYYY">
+                  <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #endPicker></mat-datepicker>
+                </mat-form-field>
+
+                <!-- Date Preset Quick Chips -->
+                <div class="date-preset-chips">
+                  <button mat-stroked-button class="btn-chip" [class.chip-active]="!startDateFilter() && !endDateFilter()" (click)="setDatePreset('all')">All Time</button>
+                  <button mat-stroked-button class="btn-chip" (click)="setDatePreset('today')">Today</button>
+                  <button mat-stroked-button class="btn-chip" (click)="setDatePreset('24h')">Last 24h</button>
+                  <button mat-stroked-button class="btn-chip" (click)="setDatePreset('7d')">Last 7 Days</button>
+                </div>
+
+                <!-- Page Size Limit & Reset -->
+                <div class="filter-right-actions">
+                  <mat-form-field appearance="outline" class="filter-limit-field">
+                    <mat-label>Rows / Page</mat-label>
+                    <mat-select [ngModel]="historyLimit()" (ngModelChange)="changeLimit($event)">
+                      <mat-option [value]="10">10 rows</mat-option>
+                      <mat-option [value]="25">25 rows</mat-option>
+                      <mat-option [value]="50">50 rows</mat-option>
+                      <mat-option [value]="100">100 rows</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <button mat-stroked-button (click)="resetActivityFilters()" class="btn-reset-filters" matTooltip="Reset All Filters">
+                    <mat-icon>restart_alt</mat-icon> Reset
+                  </button>
+                </div>
+
+              </div>
+
+            </mat-card>
+
+            <!-- Activity Logs Table Container -->
+            <mat-card class="tab-section-card">
+              <div class="data-table-container desktop-only-table">
+                <table class="custom-data-table">
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>App Tenant</th>
+                      <th>Route Path</th>
+                      <th>Traffic Category</th>
+                      <th>Visitor IP & Location</th>
+                      <th style="text-align: right;">Inspect</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @if (isHistoryLoading()) {
+                      <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px;">
+                          <mat-spinner diameter="32" style="margin: 0 auto;"></mat-spinner>
+                          <p class="brand-subtitle" style="margin-top: 12px;">Querying activity logs database...</p>
+                        </td>
+                      </tr>
+                    } @else if (historyVisits().length === 0) {
+                      <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px;">
+                          <mat-icon style="font-size: 36px; width: 36px; height: 36px; color: var(--mat-sys-on-surface-variant);">search_off</mat-icon>
+                          <h4 style="margin: 8px 0 4px 0;">No Matching Activity Logs Found</h4>
+                          <p class="brand-subtitle">Try resetting or broadening your search filters.</p>
+                          <button mat-stroked-button (click)="resetActivityFilters()" style="margin-top: 12px;">
+                            <mat-icon>restart_alt</mat-icon> Reset Filters
+                          </button>
+                        </td>
+                      </tr>
+                    } @else {
+                      @for (visit of historyVisits(); track visit._id) {
+                        <tr class="table-hover-row" (click)="openVisitDetail(visit)">
+                          <td><code>{{ formatDate(visit.timestamp) }}</code></td>
+                          <td><strong>{{ getAppDisplayName(visit.siteId) }}</strong></td>
+                          <td><code>{{ visit.path }}</code></td>
+                          <td>
+                            <span class="traffic-category-pill" [ngClass]="(visit.trafficCategory || 'Genuine').toLowerCase()">
+                              {{ visit.trafficCategory || 'Genuine' }}
+                            </span>
+                          </td>
+                          <td>
+                            <span>{{ getCountryFlag(visit.countryCode) }}</span>
+                            <code style="margin-left: 6px;">{{ visit.ip }}</code>
+                          </td>
+                          <td style="text-align: right;">
+                            <button mat-icon-button (click)="$event.stopPropagation(); openVisitDetail(visit)" matTooltip="Inspect Full Details">
+                              <mat-icon color="primary">info</mat-icon>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Mobile Log Cards View (< 768px) -->
+              <div class="mobile-only-log-cards">
+                @if (isHistoryLoading()) {
+                  <div style="text-align: center; padding: 32px;">
+                    <mat-spinner diameter="32" style="margin: 0 auto;"></mat-spinner>
+                    <p class="brand-subtitle" style="margin-top: 12px;">Querying activity logs database...</p>
+                  </div>
+                } @else if (historyVisits().length === 0) {
+                  <div style="text-align: center; padding: 32px;">
+                    <mat-icon style="font-size: 36px; width: 36px; height: 36px; color: var(--mat-sys-on-surface-variant);">search_off</mat-icon>
+                    <h4 style="margin: 8px 0 4px 0;">No Matching Activity Logs Found</h4>
+                    <p class="brand-subtitle">Try resetting or broadening your search filters.</p>
+                    <button mat-stroked-button (click)="resetActivityFilters()" style="margin-top: 12px;">
+                      <mat-icon>restart_alt</mat-icon> Reset Filters
+                    </button>
+                  </div>
+                } @else {
+                  @for (visit of historyVisits(); track visit._id) {
+                    <div class="mobile-log-card" (click)="openVisitDetail(visit)">
+                      <div class="mobile-log-card-header">
+                        <div class="mobile-log-badge-group">
+                          <span class="traffic-category-pill" [ngClass]="(visit.trafficCategory || 'Genuine').toLowerCase()">
+                            {{ visit.trafficCategory || 'Genuine' }}
+                          </span>
+                          @if (visit.trafficCategory === 'Threat') {
+                            <span class="threat-badge critical">{{ visit.threatType || 'Probe' }}</span>
+                          }
+                          <span class="mobile-log-app-name">{{ getAppDisplayName(visit.siteId) }}</span>
+                        </div>
+                        <button mat-icon-button (click)="$event.stopPropagation(); openVisitDetail(visit)" matTooltip="Inspect Log Details" class="mobile-inspect-btn">
+                          <mat-icon color="primary">info</mat-icon>
+                        </button>
+                      </div>
+
+                      <div class="mobile-log-card-body">
+                        <code class="metric-path-code">{{ visit.path }}</code>
+                      </div>
+
+                      <div class="mobile-log-card-footer">
+                        <div class="mobile-log-time">
+                          <code>{{ formatDate(visit.timestamp) }}</code>
+                        </div>
+                        <div class="mobile-log-meta">
+                          <span>{{ visit.deviceType }} ({{ visit.browser || 'Unknown' }})</span>
+                          <span class="meta-dot">•</span>
+                          <span>{{ getCountryFlag(visit.countryCode) }} <code>{{ visit.ip }}</code></span>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+
+              <!-- Pagination Footer -->
+              <div class="table-pagination-footer">
+                <span class="pagination-info-text">Showing Page {{ historyPage() }} of {{ historyTotalPages() }} ({{ historyTotalCount() | number }} total visit logs)</span>
+                <div class="pagination-actions">
+                  <button mat-stroked-button [disabled]="historyPage() <= 1" (click)="goToPage(historyPage() - 1)">
+                    <mat-icon>chevron_left</mat-icon> Previous
+                  </button>
+                  <span class="spec-chip chip-cyan">Page {{ historyPage() }}</span>
+                  <button mat-stroked-button [disabled]="historyPage() >= historyTotalPages()" (click)="goToPage(historyPage() + 1)">
+                    Next <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </mat-card>
+
           </div>
 
         }
@@ -728,7 +998,7 @@
                         <div class="kpi-icon-badge kpi-icon-badge-cyan">
                           <mat-icon>web</mat-icon>
                         </div>
-                        <h3 class="app-title-text">{{ app.name }}</h3>
+                        <h3 class="app-title-text" [matTooltip]="app.name">{{ app.name }}</h3>
                       </div>
 
                       <mat-slide-toggle
@@ -754,7 +1024,7 @@
                     <code>{{ app.domain || 'All Domains' }}</code>
                   </mat-card-content>
 
-                  <mat-card-actions class="app-card-actions">
+                  <div class="app-card-action-bar">
                     <button mat-flat-button color="accent" class="btn-tracking-code" (click)="openSnippetModal(app.siteId)">
                       <mat-icon>code</mat-icon> Get Tracking Code
                     </button>
@@ -768,7 +1038,7 @@
                         </button>
                       }
                     </div>
-                  </mat-card-actions>
+                  </div>
                 </mat-card>
               }
             </div>
@@ -903,10 +1173,51 @@
         <!-- SECTION 4: AUTHENTIC DEVELOPER DOCUMENTATION PORTAL VIEW -->
         @if (mainNav() === 'docs') {
 
+          <!-- Mobile Docs Selector (< 768px) -->
+          <div class="mobile-docs-select-container">
+            <mat-form-field appearance="outline" style="width: 100%;">
+              <mat-label>Documentation Topic</mat-label>
+              <mat-select [ngModel]="docsSection()" (ngModelChange)="docsSection.set($event)">
+                <mat-optgroup label="GETTING STARTED">
+                  <mat-option value="quickstart">HTML Quick Start</mat-option>
+                  <mat-option value="download-sdk">Download SDK JS</mat-option>
+                  <mat-option value="sdk-config">SDK Config & API</mat-option>
+                </mat-optgroup>
+                <mat-optgroup label="FRAMEWORKS & LIBRARIES">
+                  <mat-option value="react">React & React Router</mat-option>
+                  <mat-option value="nextjs">Next.js (App Router)</mat-option>
+                  <mat-option value="angular">Angular Service</mat-option>
+                  <mat-option value="vue">Vue 3 / Nuxt</mat-option>
+                  <mat-option value="svelte">Svelte / SvelteKit</mat-option>
+                  <mat-option value="nodejs">Node.js / Express</mat-option>
+                  <mat-option value="python">Python (Flask/Django)</mat-option>
+                </mat-optgroup>
+                <mat-optgroup label="REST API REFERENCE">
+                  <mat-option value="api-beacon">POST /visit Beacon</mat-option>
+                  <mat-option value="api-query">GET /analytics</mat-option>
+                  <mat-option value="api-history">GET /history</mat-option>
+                  <mat-option value="api-apps">Tenant Apps API</mat-option>
+                  <mat-option value="api-export-import">Export & Import API</mat-option>
+                  <mat-option value="api-system">System & Clear API</mat-option>
+                </mat-optgroup>
+                <mat-optgroup label="FEATURES & SECURITY">
+                  <mat-option value="threat-engine">Threat & Bot Engine</mat-option>
+                  <mat-option value="utm-tracking">UTM & Attribution</mat-option>
+                </mat-optgroup>
+                <mat-optgroup label="DEPLOYMENT & HOSTING">
+                  <mat-option value="deploy-docker">Docker & Compose</mat-option>
+                  <mat-option value="deploy-pm2">PM2 & Production</mat-option>
+                  <mat-option value="deploy-nginx">Nginx & SSL Proxy</mat-option>
+                  <mat-option value="env-vars">Environment (.env)</mat-option>
+                </mat-optgroup>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
           <div class="docs-portal-layout">
 
-            <!-- Left Sidebar Navigation -->
-            <aside class="docs-sidebar-card">
+            <!-- Left Sidebar Navigation (Desktop) -->
+            <aside class="docs-sidebar-card desktop-docs-sidebar">
 
               <div class="docs-sidebar-group">
                 <div class="docs-sidebar-header">GETTING STARTED</div>
@@ -1823,76 +2134,194 @@
 
 <!-- Modal 1: Get Tracking Code Dialog -->
 @if (showSnippetModal()) {
-  <div class="modal-backdrop-overlay">
-    <mat-card class="modal-dialog-card">
-      <mat-card-header class="kpi-header">
-        <mat-card-title>Integration Code & SDK Generator</mat-card-title>
-        <button mat-icon-button (click)="closeSnippetModal()"><mat-icon>close</mat-icon></button>
+  <div class="modal-backdrop-overlay" (click)="closeSnippetModal()">
+    <mat-card class="modal-dialog-card snippet-modal-dialog" (click)="$event.stopPropagation()">
+      <button mat-icon-button (click)="closeSnippetModal()" class="modal-close-x-btn" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+
+      <mat-card-header class="kpi-header" style="padding: 20px 24px 8px 24px;">
+        <mat-card-title class="snippet-modal-title">Integration Code & SDK Generator</mat-card-title>
       </mat-card-header>
 
-      <mat-card-content style="margin-top: 16px;">
-        <mat-button-toggle-group [value]="snippetType()" (change)="snippetType.set($event.value)" style="flex-wrap: wrap;">
-          <mat-button-toggle value="script">HTML &lt;script&gt;</mat-button-toggle>
-          <mat-button-toggle value="npm">JS / Fetch</mat-button-toggle>
-          <mat-button-toggle value="react">React</mat-button-toggle>
-          <mat-button-toggle value="nextjs">Next.js</mat-button-toggle>
-          <mat-button-toggle value="angular">Angular</mat-button-toggle>
-          <mat-button-toggle value="vue">Vue 3</mat-button-toggle>
-          <mat-button-toggle value="svelte">SvelteKit</mat-button-toggle>
-          <mat-button-toggle value="curl">cURL</mat-button-toggle>
-        </mat-button-toggle-group>
+      <mat-card-content class="snippet-modal-body">
+        <mat-tab-group [selectedIndex]="getSnippetTabIndex(snippetType())" (selectedIndexChange)="onSnippetTabChange($event)" class="snippet-material-tabs" animationDuration="0ms">
+          
+          <!-- Tab 1: HTML Script -->
+          <mat-tab label="HTML <script>">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">HTML &lt;SCRIPT&gt;</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getTrackingScriptSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getTrackingScriptSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
 
-        <div class="code-box-wrapper">
-          <div class="code-box-header">
-            <span class="code-lang-label">{{ snippetType().toUpperCase() }}</span>
-            <div class="control-bar-actions">
-              <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
-                <mat-icon>download</mat-icon> Download JS File
-              </a>
-              <button mat-button class="code-copy-btn"
-                      (click)="copyToClipboard(
-                        snippetType() === 'script' ? getTrackingScriptSnippet(selectedAppForSnippet()) :
-                        snippetType() === 'npm' ? getNpmSnippet(selectedAppForSnippet()) :
-                        snippetType() === 'react' ? getReactSnippet(selectedAppForSnippet()) :
-                        snippetType() === 'nextjs' ? getNextjsSnippet(selectedAppForSnippet()) :
-                        snippetType() === 'angular' ? getAngularSnippet(selectedAppForSnippet()) :
-                        snippetType() === 'vue' ? getVueSnippet(selectedAppForSnippet()) :
-                        snippetType() === 'svelte' ? getSvelteSnippet(selectedAppForSnippet()) :
-                        getCurlSnippet(selectedAppForSnippet()),
-                        'Tracking code copied!'
-                      )">
-                <mat-icon>content_copy</mat-icon> Copy Code
-              </button>
-            </div>
-          </div>
-          <div class="code-box-container">
-            <pre>
-@if (snippetType() === 'script') {
-{{ getTrackingScriptSnippet(selectedAppForSnippet()) }}
-} @else if (snippetType() === 'npm') {
-{{ getNpmSnippet(selectedAppForSnippet()) }}
-} @else if (snippetType() === 'react') {
-{{ getReactSnippet(selectedAppForSnippet()) }}
-} @else if (snippetType() === 'nextjs') {
-{{ getNextjsSnippet(selectedAppForSnippet()) }}
-} @else if (snippetType() === 'angular') {
-{{ getAngularSnippet(selectedAppForSnippet()) }}
-} @else if (snippetType() === 'vue') {
-{{ getVueSnippet(selectedAppForSnippet()) }}
-} @else if (snippetType() === 'svelte') {
-{{ getSvelteSnippet(selectedAppForSnippet()) }}
-} @else {
-{{ getCurlSnippet(selectedAppForSnippet()) }}
-}
-            </pre>
-          </div>
-        </div>
+          <!-- Tab 2: JS / Fetch -->
+          <mat-tab label="JS / Fetch">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">JS / FETCH</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getNpmSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getNpmSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+          <!-- Tab 3: React -->
+          <mat-tab label="React">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">REACT</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getReactSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getReactSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+          <!-- Tab 4: Next.js -->
+          <mat-tab label="Next.js">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">NEXT.JS</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getNextjsSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getNextjsSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+          <!-- Tab 5: Angular -->
+          <mat-tab label="Angular">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">ANGULAR</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getAngularSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getAngularSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+          <!-- Tab 6: Vue 3 -->
+          <mat-tab label="Vue 3">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">VUE 3</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getVueSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getVueSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+          <!-- Tab 7: SvelteKit -->
+          <mat-tab label="SvelteKit">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">SVELTEKIT</span>
+                  <div class="code-box-actions">
+                    <a mat-button class="code-copy-btn" href="/sdk/analytics.js" download="analytics.js">
+                      <mat-icon>download</mat-icon> Download JS File
+                    </a>
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getSvelteSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getSvelteSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+          <!-- Tab 8: cURL -->
+          <mat-tab label="cURL">
+            <ng-template matTabContent>
+              <div class="code-box-wrapper">
+                <div class="code-box-header">
+                  <span class="code-lang-label">CURL</span>
+                  <div class="code-box-actions">
+                    <button mat-button class="code-copy-btn" (click)="copyToClipboard(getCurlSnippet(selectedAppForSnippet()), 'Tracking code copied!')">
+                      <mat-icon>content_copy</mat-icon> Copy Code
+                    </button>
+                  </div>
+                </div>
+                <div class="code-box-container">
+                  <pre>{{ getCurlSnippet(selectedAppForSnippet()) }}</pre>
+                </div>
+              </div>
+            </ng-template>
+          </mat-tab>
+
+        </mat-tab-group>
       </mat-card-content>
-
-      <mat-card-actions class="app-card-actions">
-        <span></span>
-        <button mat-stroked-button (click)="closeSnippetModal()">Close</button>
-      </mat-card-actions>
     </mat-card>
   </div>
 }
@@ -1983,3 +2412,117 @@
     </mat-card>
   </div>
 }
+
+<!-- Modal 5: Log Inspection Details Modal -->
+@if (showDetailModal() && selectedVisitDetail(); as log) {
+  <div class="modal-backdrop-overlay" (click)="closeVisitDetail()">
+    <mat-card class="modal-dialog-card log-inspection-modal" (click)="$event.stopPropagation()">
+      <button mat-icon-button (click)="closeVisitDetail()" class="modal-close-x-btn" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+
+      <mat-card-header class="kpi-header inspection-modal-header">
+        <div class="inspection-title-group">
+          <div class="kpi-icon-badge" [ngClass]="log.trafficCategory === 'Threat' ? 'kpi-icon-badge-amber' : 'kpi-icon-badge-cyan'">
+            <mat-icon>{{ log.trafficCategory === 'Threat' ? 'warning' : 'info' }}</mat-icon>
+          </div>
+          <div class="inspection-header-text">
+            <mat-card-title class="inspection-modal-title">Activity Log Inspection</mat-card-title>
+            <p class="brand-subtitle inspection-modal-sub">Visit ID: <code class="visit-id-code">{{ log._id }}</code></p>
+          </div>
+        </div>
+      </mat-card-header>
+
+      <mat-card-content class="inspection-modal-content">
+        <div class="inspection-details-grid">
+          <div class="detail-row">
+            <span class="detail-label">Local Timestamp</span>
+            <div class="detail-value">
+              <code class="primary-time-code">{{ formatDate(log.timestamp) }}</code>
+              <div class="raw-timestamp-hint">ISO: <code>{{ log.timestamp }}</code></div>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">App Tenant</span>
+            <div class="detail-value">
+              <strong>{{ getAppDisplayName(log.siteId) }}</strong>
+              @if (log.siteId !== 'default' && log.siteId !== 'all') {
+                <span class="detail-sub-code"> (ID: <code>{{ log.siteId }}</code>)</span>
+              }
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Route Path</span>
+            <div class="detail-value">
+              <code class="metric-path-code">{{ log.path }}</code>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Full URL</span>
+            <div class="detail-value">
+              <code class="url-code">{{ log.fullUrl || log.path }}</code>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Traffic Classification</span>
+            <div class="detail-value detail-value-pills">
+              <span class="traffic-category-pill" [ngClass]="(log.trafficCategory || 'Genuine').toLowerCase()">
+                {{ log.trafficCategory || 'Genuine' }}
+              </span>
+              @if (log.threatType && log.threatType !== 'None') {
+                <span class="threat-badge critical">{{ log.threatType }} ({{ log.threatSeverity || 'Low' }})</span>
+              }
+            </div>
+          </div>
+
+          @if (log.threatReason) {
+            <div class="detail-row threat-trigger-row">
+              <span class="detail-label threat-label">Threat Reason</span>
+              <div class="detail-value threat-value">{{ log.threatReason }}</div>
+            </div>
+          }
+
+          <div class="detail-row">
+            <span class="detail-label">Visitor IP & Location</span>
+            <div class="detail-value">
+              <code class="ip-code">{{ log.ip }}</code>
+              <span class="geo-text">— {{ getCountryFlag(log.countryCode) }} {{ log.city ? log.city + ', ' + log.region + ', ' + log.country : log.country }}</span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">Device & Browser</span>
+            <div class="detail-value">
+              <span>{{ log.deviceType }} — {{ log.browser }}</span>
+            </div>
+          </div>
+
+          @if (log.referrer) {
+            <div class="detail-row">
+              <span class="detail-label">Referrer Source</span>
+              <div class="detail-value">
+                <code class="url-code">{{ log.referrer }}</code>
+              </div>
+            </div>
+          }
+
+          @if (log.utm_campaign || log.utm_source) {
+            <div class="detail-row">
+              <span class="detail-label">UTM Campaign</span>
+              <div class="detail-value utm-value">
+                <span>Source: <code>{{ log.utm_source }}</code></span>
+                <span>Medium: <code>{{ log.utm_medium }}</code></span>
+                <span>Campaign: <code>{{ log.utm_campaign }}</code></span>
+              </div>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+}
+

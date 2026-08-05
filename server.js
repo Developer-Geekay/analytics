@@ -578,7 +578,7 @@ app.get('/api/admin/analytics', async (req, res) => {
 app.get('/api/admin/history', async (req, res) => {
   try {
     await connectToDatabase();
-    const { siteId, search, device, category, page = 1, limit = 10 } = req.query;
+    const { siteId, search, device, category, threatType, browser, startDate, endDate, page = 1, limit = 10 } = req.query;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
@@ -594,6 +594,23 @@ app.get('/api/admin/history', async (req, res) => {
     }
     if (category && category !== 'all') {
       filter.trafficCategory = category;
+    }
+    if (threatType && threatType !== 'all') {
+      filter.threatType = threatType;
+    }
+    if (browser && browser !== 'all') {
+      filter.browser = new RegExp(`^${browser}$`, 'i');
+    }
+    if (startDate || endDate) {
+      filter.timestamp = {};
+      if (startDate) {
+        filter.timestamp.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.timestamp.$lte = end;
+      }
     }
     if (search && search.trim() !== '') {
       const regex = new RegExp(search.trim(), 'i');

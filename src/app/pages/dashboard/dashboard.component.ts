@@ -1,8 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed, isDevMode } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AnalyticsService } from '../../core/services/analytics.service';
-import { PageVisitItem, RegisteredApp } from '../../core/models/analytics.model';
 
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,10 +21,16 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
-import { AuthService } from '../../core/services/auth.service';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
-export type NavSection = 'dashboard' | 'apps' | 'settings' | 'docs';
-export type TabType = 'overview' | 'pages' | 'acquisition' | 'devices' | 'threats' | 'feed';
+import { AnalyticsService } from '../../core/services/analytics.service';
+import { AuthService } from '../../core/services/auth.service';
+import { PageVisitItem, RegisteredApp } from '../../core/models/analytics.model';
+
+export type NavSection = 'dashboard' | 'activity' | 'apps' | 'settings' | 'docs';
+export type TabType = 'overview' | 'pages' | 'acquisition' | 'devices' | 'threats';
 
 @Component({
   selector: 'app-dashboard',
@@ -51,7 +55,10 @@ export type TabType = 'overview' | 'pages' | 'acquisition' | 'devices' | 'threat
     MatChipsModule,
     MatDividerModule,
     MatButtonToggleModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatExpansionModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   templateUrl: './dashboard.component.html'
 })
@@ -77,14 +84,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
   mainNav = signal<NavSection>('dashboard');
   activeTab = signal<TabType>('overview');
   docsSection = signal<string>('quickstart');
+  isMobileMenuOpen = signal<boolean>(false);
 
+  // Advanced Filters State
   searchQuery = signal<string>('');
   deviceFilter = signal<string>('all');
   categoryFilter = signal<string>('all');
+  threatTypeFilter = signal<string>('all');
+  browserFilter = signal<string>('all');
+  startDateFilter = signal<string>('');
+  endDateFilter = signal<string>('');
+
   dismissAlertBanner = signal<boolean>(false);
   autoRefreshEnabled = signal<boolean>(false);
   secondsUntilRefresh = signal<number>(5);
   showClearModal = signal<boolean>(false);
+
+  // Detail Modal State
+  selectedVisitDetail = signal<PageVisitItem | null>(null);
+  showDetailModal = signal<boolean>(false);
 
   // App Management State
   showRegisterAppModal = signal<boolean>(false);
@@ -113,7 +131,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   historyVisits = signal<PageVisitItem[]>([]);
   historyTotalCount = signal<number>(0);
   historyPage = signal<number>(1);
-  historyLimit = signal<number>(10);
+  historyLimit = signal<number>(25);
   historyTotalPages = signal<number>(1);
   isHistoryLoading = signal<boolean>(false);
 
@@ -121,6 +139,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Theme State (Dark & Light Modes)
   currentTheme = signal<'dark' | 'light'>('dark');
+
+  // Computed tenant options combining registered apps and recorded database sites
+  allTenantOptions = computed(() => {
+    const available = this.analyticsService.summary()?.availableSites || [];
+    const registered = this.analyticsService.registeredApps() || [];
+
+    const map = new Map<string, { siteId: string; name: string; domain?: string }>();
+
+    for (const app of registered) {
+      if (app.siteId) {
+        map.set(app.siteId, {
+          siteId: app.siteId,
+          name: app.name || app.siteId,
+          domain: app.domain
+        });
+      }
+    }
+
+    for (const siteId of available) {
+      if (siteId && !map.has(siteId)) {
+        map.set(siteId, {
+          siteId: siteId,
+          name: siteId === 'default' ? 'Default Application' : siteId
+        });
+      }
+    }
+
+    return Array.from(map.values());
+  });
+
+  getAppDisplayName(siteId: string): string {
+    if (!siteId || siteId === 'all') return 'All Projects (Global)';
+    const opt = this.allTenantOptions().find(o => o.siteId === siteId);
+    if (opt && opt.name) return opt.name;
+    if (siteId === 'default') return 'Default Application';
+    return siteId;
+  }
+
+  getAppTenantSubtitle(siteId: string): string | null {
+    if (!siteId || siteId === 'all') return null;
+    const opt = this.allTenantOptions().find(o => o.siteId === siteId);
+    if (opt && opt.name && opt.name !== siteId) return siteId;
+    return null;
+  }
 
   performLogin(): void {
     if (!this.loginUsername() || !this.loginPassword()) return;
@@ -144,7 +206,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.applyTheme(initialTheme);
 
     const initialPath = typeof window !== 'undefined' ? window.location.pathname.replace(/^\//, '') : 'dashboard';
-    if (['dashboard', 'apps', 'settings', 'docs'].includes(initialPath)) {
+    if (['dashboard', 'activity', 'apps', 'settings', 'docs'].includes(initialPath)) {
       this.mainNav.set(initialPath as NavSection);
     } else {
       this.mainNav.set('dashboard');
@@ -154,6 +216,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadData();
     this.loadHistory();
     this.analyticsService.fetchApps().subscribe();
+  }
+
+  toggleMobileMenu(): void {
+    this.isMobileMenuOpen.update(v => !v);
   }
 
   toggleTheme(): void {
@@ -200,6 +266,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       search: this.searchQuery(),
       device: this.deviceFilter(),
       category: this.categoryFilter(),
+      threatType: this.threatTypeFilter(),
+      browser: this.browserFilter(),
+      startDate: this.startDateFilter(),
+      endDate: this.endDateFilter(),
       page: this.historyPage(),
       limit: this.historyLimit()
     }).subscribe({
@@ -224,12 +294,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   setTab(tab: string): void {
-    const validTabs: TabType[] = ['overview', 'pages', 'acquisition', 'devices', 'threats', 'feed'];
+    const validTabs: TabType[] = ['overview', 'pages', 'acquisition', 'devices', 'threats'];
     if (validTabs.includes(tab as TabType)) {
       this.activeTab.set(tab as TabType);
-      if (tab === 'feed' || tab === 'threats') {
-        this.loadHistory();
-      }
     }
   }
 
@@ -237,6 +304,108 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.categoryFilter.set(category);
     this.historyPage.set(1);
     this.loadHistory();
+  }
+
+  onThreatTypeFilterChange(threatType: string): void {
+    this.threatTypeFilter.set(threatType);
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  onBrowserFilterChange(browser: string): void {
+    this.browserFilter.set(browser);
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  startDateObj = computed(() => {
+    return this.startDateFilter() ? new Date(this.startDateFilter()) : null;
+  });
+
+  endDateObj = computed(() => {
+    return this.endDateFilter() ? new Date(this.endDateFilter()) : null;
+  });
+
+  onStartDateChange(date: string): void {
+    this.startDateFilter.set(date);
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  onEndDateChange(date: string): void {
+    this.endDateFilter.set(date);
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  onStartDateObjChange(date: Date | null): void {
+    if (date && !isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      this.startDateFilter.set(`${year}-${month}-${day}`);
+    } else {
+      this.startDateFilter.set('');
+    }
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  onEndDateObjChange(date: Date | null): void {
+    if (date && !isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      this.endDateFilter.set(`${year}-${month}-${day}`);
+    } else {
+      this.endDateFilter.set('');
+    }
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  setDatePreset(preset: 'today' | '24h' | '7d' | 'all'): void {
+    const now = new Date();
+    if (preset === 'today') {
+      const todayStr = now.toISOString().split('T')[0];
+      this.startDateFilter.set(todayStr);
+      this.endDateFilter.set(todayStr);
+    } else if (preset === '24h') {
+      const past24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      this.startDateFilter.set(past24h.toISOString().split('T')[0]);
+      this.endDateFilter.set(now.toISOString().split('T')[0]);
+    } else if (preset === '7d') {
+      const past7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      this.startDateFilter.set(past7d.toISOString().split('T')[0]);
+      this.endDateFilter.set(now.toISOString().split('T')[0]);
+    } else if (preset === 'all') {
+      this.startDateFilter.set('');
+      this.endDateFilter.set('');
+    }
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  resetActivityFilters(): void {
+    this.searchQuery.set('');
+    this.deviceFilter.set('all');
+    this.categoryFilter.set('all');
+    this.threatTypeFilter.set('all');
+    this.browserFilter.set('all');
+    this.startDateFilter.set('');
+    this.endDateFilter.set('');
+    this.historyPage.set(1);
+    this.loadHistory();
+  }
+
+  openVisitDetail(visit: PageVisitItem): void {
+    this.selectedVisitDetail.set(visit);
+    this.showDetailModal.set(true);
+  }
+
+  closeVisitDetail(): void {
+    this.showDetailModal.set(false);
+    this.selectedVisitDetail.set(null);
   }
 
   getGenuinePercentage(): number {
@@ -453,6 +622,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   setMainNav(nav: NavSection): void {
     this.mainNav.set(nav);
+    this.isMobileMenuOpen.set(false);
     this.location.go('/' + nav);
     if (nav === 'settings') {
       this.loadSystemInfo();
@@ -628,6 +798,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   closeSnippetModal(): void {
     this.showSnippetModal.set(false);
+  }
+
+  snippetTabs: Array<'script' | 'npm' | 'react' | 'nextjs' | 'angular' | 'vue' | 'svelte' | 'curl'> = [
+    'script', 'npm', 'react', 'nextjs', 'angular', 'vue', 'svelte', 'curl'
+  ];
+
+  getSnippetTabIndex(type: string): number {
+    const idx = this.snippetTabs.indexOf(type as any);
+    return idx >= 0 ? idx : 0;
+  }
+
+  onSnippetTabChange(index: number): void {
+    const selected = this.snippetTabs[index] || 'script';
+    this.snippetType.set(selected);
   }
 
   promptDeleteApp(app: RegisteredApp): void {
