@@ -127,6 +127,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   importJsonData = signal<any[] | null>(null);
   isImporting = signal<boolean>(false);
 
+  // Security & IP Block State
+  showBlockIpModal = signal<boolean>(false);
+  manualBlockIp = signal<string>('');
+  manualBlockReason = signal<string>('');
+
   // Paginated History State
   historyVisits = signal<PageVisitItem[]>([]);
   historyTotalCount = signal<number>(0);
@@ -626,6 +631,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.location.go('/' + nav);
     if (nav === 'settings') {
       this.loadSystemInfo();
+      this.analyticsService.fetchBlockedIps().subscribe();
     }
   }
 
@@ -635,6 +641,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.systemInfo.set(res.data);
       }
     });
+    this.analyticsService.fetchBlockedIps().subscribe();
   }
 
   handleFileSelected(event: any): void {
@@ -831,11 +838,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.analyticsService.deleteApp(target.siteId).subscribe({
       next: () => {
         this.closeDeleteAppModal();
+        this.analyticsService.showToast(`App "${target.name}" unregistered successfully`, 'info');
+        this.analyticsService.fetchApps().subscribe();
       },
       error: (err) => {
-        this.analyticsService.showToast(err.error?.error || 'Failed to remove application tenant', 'error');
+        this.analyticsService.showToast(err.error?.error || 'Failed to unregister app', 'error');
       }
     });
+  }
+
+  openManualBlockModal(ip = '', reason = 'Manual Admin Block'): void {
+    this.manualBlockIp.set(ip);
+    this.manualBlockReason.set(reason);
+    this.showBlockIpModal.set(true);
+  }
+
+  closeManualBlockModal(): void {
+    this.showBlockIpModal.set(false);
+  }
+
+  confirmManualBlockIp(): void {
+    const ip = this.manualBlockIp().trim();
+    if (!ip) {
+      this.analyticsService.showToast('IP address is required', 'error');
+      return;
+    }
+    const reason = this.manualBlockReason().trim() || 'Manual Admin Block';
+    this.analyticsService.blockIp(ip, reason).subscribe(() => {
+      this.closeManualBlockModal();
+    });
+  }
+
+  unblockIp(ip: string): void {
+    if (!ip) return;
+    this.analyticsService.unblockIp(ip).subscribe();
+  }
+
+  toggleAutoBlock(event: any): void {
+    const enabled = event.checked;
+    this.analyticsService.toggleAutoIpBlock(enabled).subscribe();
   }
 
   getBaseUrl(): string {

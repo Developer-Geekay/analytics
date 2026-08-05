@@ -10,6 +10,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const PageVisit = require('./models/PageVisit');
 const RegisteredApp = require('./models/RegisteredApp');
+const BlockedIp = require('./models/BlockedIp');
+const SystemConfig = require('./models/SystemConfig');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,9 +42,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Static SDK files
-const publicFolder = path.join(__dirname, 'public');
-app.use(express.static(publicFolder));
+// In-memory security configuration cache for sub-millisecond pre-flight checks
+let activeBlockedIpsCache = new Set();
+let isAutoBlockEnabled = true;
+
+async function syncSecurityConfigCache() {
+  try {
+    if (mongoose.connection.readyState < 1) return;
+    let config = await SystemConfig.findOne({ key: 'global_settings' });
+    if (!config) {
+      config = await SystemConfig.create({ key: 'global_settings', autoIpBlockEnabled: true });
+    }
+    isAutoBlockEnabled = config.autoIpBlockEnabled !== false;
+
+    const blockedDocs = await BlockedIp.find({ status: 'active' });
+    activeBlockedIpsCache = new Set(blockedDocs.map(doc => doc.ip));
+  } catch (e) {
+    console.error("Security config cache sync error:", e.message);
+  }
+}
 
 // Database connection
 async function connectToDatabase() {
@@ -54,11 +72,76 @@ async function connectToDatabase() {
     };
     await mongoose.connect(MONGODB_URI, options);
     console.log(`✅ [${NODE_ENV.toUpperCase()}] Connected to MongoDB Analytics DB successfully.`);
+    await syncSecurityConfigCache();
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err.message);
   }
 }
 connectToDatabase();
+
+app.set('trust proxy', true);
+
+// Pre-flight IP Threat Interceptor Middleware
+app.use(async (req, res, next) => {
+  const rawIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const cleanIp = sanitizeIpString(rawIp) || rawIp;
+
+  // Allow admin management API endpoints & login route so administrators are never locked out of settings
+  if (req.path.startsWith('/api/admin') || req.path.startsWith('/login')) {
+    return next();
+  }
+
+  // Check if IP is in the active blocklist
+  if (cleanIp && activeBlockedIpsCache.has(cleanIp)) {
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.status(403).json({
+        success: false,
+        error: `Your IP has been detected and blocked. Send mail to unblock it on unblock@consoleapi.in`,
+        ip: cleanIp,
+        unblockEmail: 'unblock@consoleapi.in'
+      });
+    }
+
+    return res.status(403).send(`
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Restricted | ConsoleAPI</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0b0f19; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+      .card { background: #151d30; border: 1px solid #2a364f; border-radius: 20px; padding: 40px 32px; max-width: 500px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+      .icon { width: 64px; height: 64px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; margin-bottom: 24px; }
+      h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 12px 0; color: #ffffff; letter-spacing: -0.02em; }
+      p { font-size: 0.95rem; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }
+      .ip-badge { background: #070a10; padding: 6px 12px; border-radius: 8px; font-family: monospace; color: #ef4444; font-size: 0.9rem; word-break: break-all; border: 1px solid rgba(239, 68, 68, 0.3); }
+      .email-box { background: #0f172a; border: 1px dashed #38bdf8; border-radius: 12px; padding: 20px; margin-top: 12px; }
+      .email-link { color: #38bdf8; font-weight: 700; text-decoration: none; font-size: 1.05rem; }
+      .email-link:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">🚫</div>
+      <h1>Access Restricted</h1>
+      <p>Your IP address <span class="ip-badge">${cleanIp}</span> has been detected and blocked due to policy enforcement or suspicious activity.</p>
+      <div class="email-box">
+        <p style="margin-bottom: 8px; color: #cbd5e1; font-size: 0.875rem;">If you believe this is a mistake, send an email to request an unblock:</p>
+        <a href="mailto:unblock@consoleapi.in" class="email-link">unblock@consoleapi.in</a>
+      </div>
+    </div>
+  </body>
+</html>
+    `);
+  }
+
+  next();
+});
+
+// Static SDK files (only served if IP is NOT blocked)
+const publicFolder = path.join(__dirname, 'public');
+app.use(express.static(publicFolder));
 
 function detectDeviceType(userAgent = '') {
   const ua = userAgent.toLowerCase();
@@ -263,6 +346,28 @@ async function recordVisit(data) {
       threatReason: analysis.threatReason,
       timestamp: new Date(),
     });
+
+    // Auto-block offending IP if trafficCategory is 'Threat' and auto-block is enabled
+    if (analysis.trafficCategory === 'Threat' && isAutoBlockEnabled && cleanIp && cleanIp !== '127.0.0.1' && cleanIp !== '::1') {
+      try {
+        await BlockedIp.updateOne(
+          { ip: cleanIp },
+          {
+            $setOnInsert: {
+              ip: cleanIp,
+              reason: analysis.threatReason || `Automated threat detection: ${analysis.threatType}`,
+              blockedBy: 'system',
+              threatCategory: analysis.threatType,
+              status: 'active',
+            }
+          },
+          { upsert: true }
+        );
+        activeBlockedIpsCache.add(cleanIp);
+      } catch (err) {
+        console.error("Auto block IP creation error:", err.message);
+      }
+    }
   } catch (err) {
     console.error("Error recording page visit:", err.message);
   }
@@ -886,6 +991,99 @@ app.delete('/api/admin/analytics', async (req, res) => {
 
     const result = await PageVisit.deleteMany(filter);
     return res.json({ success: true, message: `Successfully cleared ${result.deletedCount || 0} analytics records.` });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8. Security & IP Threat Management Endpoints
+app.get('/api/admin/security/blocked-ips', async (req, res) => {
+  try {
+    await connectToDatabase();
+    await syncSecurityConfigCache();
+    const blockedIps = await BlockedIp.find().sort({ createdAt: -1 });
+    return res.json({
+      success: true,
+      autoIpBlockEnabled: isAutoBlockEnabled,
+      blockedIps,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/security/block-ip', async (req, res) => {
+  try {
+    await connectToDatabase();
+    const { ip, reason, threatCategory } = req.body;
+    if (!ip) {
+      return res.status(400).json({ success: false, error: 'IP address is required' });
+    }
+
+    const cleanIp = ip.trim();
+    const doc = await BlockedIp.findOneAndUpdate(
+      { ip: cleanIp },
+      {
+        ip: cleanIp,
+        reason: reason || 'Manual Admin Block',
+        blockedBy: 'admin',
+        threatCategory: threatCategory || 'Manual Restriction',
+        status: 'active',
+      },
+      { upsert: true, new: true }
+    );
+
+    activeBlockedIpsCache.add(cleanIp);
+    return res.json({
+      success: true,
+      message: `IP ${cleanIp} has been blocked successfully!`,
+      blockedIp: doc,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/security/unblock-ip', async (req, res) => {
+  try {
+    await connectToDatabase();
+    const { ip } = req.body;
+    if (!ip) {
+      return res.status(400).json({ success: false, error: 'IP address is required' });
+    }
+
+    const cleanIp = ip.trim();
+    await BlockedIp.deleteOne({ ip: cleanIp });
+    activeBlockedIpsCache.delete(cleanIp);
+
+    return res.json({
+      success: true,
+      message: `IP ${cleanIp} has been unblocked successfully!`,
+      unblockedIp: cleanIp,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/admin/security/toggle-auto-block', async (req, res) => {
+  try {
+    await connectToDatabase();
+    const { enabled } = req.body;
+    const autoEnabled = enabled !== false;
+
+    await SystemConfig.findOneAndUpdate(
+      { key: 'global_settings' },
+      { autoIpBlockEnabled: autoEnabled },
+      { upsert: true, new: true }
+    );
+
+    isAutoBlockEnabled = autoEnabled;
+    return res.json({
+      success: true,
+      autoIpBlockEnabled: isAutoBlockEnabled,
+      message: `Automated IP Threat Blocking has been ${isAutoBlockEnabled ? 'ENABLED' : 'DISABLED'}.`,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }

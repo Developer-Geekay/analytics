@@ -1164,6 +1164,83 @@
                 </mat-card-content>
               </mat-card>
 
+              <!-- Card 4: IP Threat & Bot Blocking Engine -->
+              <mat-card class="kpi-card" style="grid-column: 1 / -1;">
+                <div class="overview-card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="kpi-icon-badge kpi-icon-badge-indigo" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">
+                      <mat-icon style="color: #818cf8;">shield</mat-icon>
+                    </div>
+                    <div>
+                      <h3 class="overview-card-title">Automated IP Threat & Bot Protection Engine</h3>
+                      <p class="brand-subtitle" style="margin: 2px 0 0 0;">Detect patterns, auto-block vulnerability scanners, and manage restricted IP addresses.</p>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <mat-slide-toggle color="primary" [checked]="analyticsService.autoIpBlockEnabled()" (change)="toggleAutoBlock($event)">
+                      <strong style="color: var(--mat-sys-on-surface); font-size: 0.9rem;">Auto IP Block Engine</strong>
+                    </mat-slide-toggle>
+                    <button mat-flat-button color="primary" (click)="openManualBlockModal()">
+                      <mat-icon>block</mat-icon> Manually Block IP
+                    </button>
+                  </div>
+                </div>
+
+                <mat-card-content style="margin-top: 20px;">
+                  <div class="docs-alert-note" style="margin-top: 0; margin-bottom: 20px;">
+                    <mat-icon color="primary">info</mat-icon>
+                    <div>
+                      <strong>Unblock Policy:</strong> Restricted visitors see an HTTP 403 page instructing them to send unblock requests to <a href="mailto:unblock@consoleapi.in" style="color: #38bdf8; font-weight: bold;">unblock@consoleapi.in</a>. Genuine users browsing standard routes are never blocked.
+                    </div>
+                  </div>
+
+                  <h4 style="font-weight: 700; font-size: 1rem; margin-bottom: 12px; color: var(--mat-sys-on-surface);">Restricted & Blocked IP Register ({{ analyticsService.blockedIps().length }})</h4>
+                  
+                  @if (analyticsService.blockedIps().length === 0) {
+                    <div style="padding: 24px; text-align: center; background: var(--mat-sys-surface-container-low); border-radius: 12px; color: var(--mat-sys-on-surface-variant);">
+                      <mat-icon style="font-size: 36px; width: 36px; height: 36px; color: #10b981; opacity: 0.8; margin-bottom: 8px;">verified_user</mat-icon>
+                      <p style="margin: 0; font-weight: 600;">No IP addresses are currently blocked.</p>
+                      <p style="margin: 4px 0 0 0; font-size: 0.85rem;">Suspicious vulnerability probes will be automatically captured here if auto-block is active.</p>
+                    </div>
+                  } @else {
+                    <div class="data-table-container">
+                      <table class="custom-data-table">
+                        <thead>
+                          <tr>
+                            <th>IP Address</th>
+                            <th>Detection Reason</th>
+                            <th>Blocked By</th>
+                            <th>Threat Category</th>
+                            <th>Blocked Date</th>
+                            <th style="text-align: right;">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (item of analyticsService.blockedIps(); track item.ip) {
+                            <tr>
+                              <td><code style="color: #ef4444; font-weight: bold; background: rgba(239,68,68,0.1); padding: 4px 8px; border-radius: 6px;">{{ item.ip }}</code></td>
+                              <td><span style="font-size: 0.85rem; color: var(--mat-sys-on-surface);">{{ item.reason }}</span></td>
+                              <td>
+                                <mat-chip [style.background]="item.blockedBy === 'admin' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)'" [style.color]="item.blockedBy === 'admin' ? '#38bdf8' : '#ef4444'" style="font-weight: 700; font-size: 0.75rem;">
+                                  {{ item.blockedBy === 'admin' ? 'MANUAL ADMIN' : 'AUTOMATED SYSTEM' }}
+                                </mat-chip>
+                              </td>
+                              <td><span class="threat-badge threat-high">{{ item.threatCategory || 'Threat Probe' }}</span></td>
+                              <td><span style="font-size: 0.8rem; color: var(--mat-sys-on-surface-variant);">{{ item.createdAt | date:'short' }}</span></td>
+                              <td style="text-align: right;">
+                                <button mat-stroked-button color="primary" style="height: 32px; font-size: 0.8rem;" (click)="unblockIp(item.ip)">
+                                  <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">lock_open</mat-icon> Unblock IP
+                                </button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                </mat-card-content>
+              </mat-card>
+
             </div>
 
           </div>
@@ -2488,16 +2565,28 @@
 
           <div class="detail-row">
             <span class="detail-label">Visitor IP & Location</span>
-            <div class="detail-value">
-              <code class="ip-code">{{ log.ip }}</code>
-              <span class="geo-text">— {{ getCountryFlag(log.countryCode) }} {{ log.city ? log.city + ', ' + log.region + ', ' + log.country : log.country }}</span>
+            <div class="detail-value" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+              <div>
+                <code class="ip-code">{{ log.ip }}</code>
+                <span class="geo-text">— {{ getCountryFlag(log.countryCode) }} {{ log.city ? log.city + ', ' + log.region + ', ' + log.country : log.country }}</span>
+              </div>
+              <button mat-flat-button color="warn" style="height: 30px; font-size: 0.75rem;" (click)="openManualBlockModal(log.ip, log.threatReason || 'Blocked from Activity Log Inspection')">
+                <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;">block</mat-icon> Block IP
+              </button>
             </div>
           </div>
 
           <div class="detail-row">
             <span class="detail-label">Device & Browser</span>
             <div class="detail-value">
-              <span>{{ log.deviceType }} — {{ log.browser }}</span>
+              <span>{{ log.deviceType }} ({{ log.browser }})</span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <span class="detail-label">User-Agent Header</span>
+            <div class="detail-value">
+              <code class="ua-code">{{ log.userAgent }}</code>
             </div>
           </div>
 
@@ -2526,3 +2615,36 @@
   </div>
 }
 
+<!-- MODAL: MANUAL BLOCK IP DIALOG -->
+@if (showBlockIpModal()) {
+  <div class="modal-backdrop-overlay" (click)="closeManualBlockModal()">
+    <mat-card class="modal-dialog-card" (click)="$event.stopPropagation()" style="max-width: 480px;">
+      <mat-card-header>
+        <mat-card-title style="display: flex; align-items: center; gap: 10px;">
+          <mat-icon color="warn">block</mat-icon> Manually Block IP Address
+        </mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content style="margin-top: 16px;">
+        <p class="brand-subtitle" style="margin-bottom: 16px;">Restricting an IP will prevent it from sending analytics beacons or viewing tracked pages on your server.</p>
+
+        <mat-form-field appearance="outline" style="width: 100%; margin-bottom: 12px;">
+          <mat-label>IP Address (IPv4 or IPv6)</mat-label>
+          <input matInput [ngModel]="manualBlockIp()" (ngModelChange)="manualBlockIp.set($event)" placeholder="e.g. 178.128.207.138">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" style="width: 100%;">
+          <mat-label>Block Reason</mat-label>
+          <input matInput [ngModel]="manualBlockReason()" (ngModelChange)="manualBlockReason.set($event)" placeholder="e.g. Malicious crawler or manual policy violation">
+        </mat-form-field>
+      </mat-card-content>
+
+      <mat-card-actions style="justify-content: flex-end; margin-top: 8px;">
+        <button mat-button (click)="closeManualBlockModal()">Cancel</button>
+        <button mat-flat-button color="warn" (click)="confirmManualBlockIp()">
+          <mat-icon>block</mat-icon> Confirm Block IP
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}

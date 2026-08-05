@@ -18,6 +18,7 @@ export interface PageVisitItem {
   threatType?: 'None' | 'Vulnerability Probe' | 'Path Traversal' | 'DDoS Burst' | 'Suspicious Scanner';
   threatSeverity?: 'Low' | 'Medium' | 'High' | 'Critical';
   threatReason?: string;
+  userAgent?: string;
   timestamp: string | Date;
 }
 
@@ -112,6 +113,16 @@ export interface RegisteredApp {
   isRegistered?: boolean;
   totalVisits?: number;
   lastActive?: string | Date | null;
+  createdAt?: string | Date;
+}
+
+export interface BlockedIpItem {
+  _id?: string;
+  ip: string;
+  reason: string;
+  blockedBy: 'system' | 'admin';
+  threatCategory?: string;
+  status: 'active' | 'unblocked';
   createdAt?: string | Date;
 }
 

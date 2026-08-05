@@ -1,7 +1,7 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
-import { AnalyticsSummary, RegisteredApp } from '../models/analytics.model';
+import { AnalyticsSummary, RegisteredApp, BlockedIpItem } from '../models/analytics.model';
 import { AuthService } from './auth.service';
 
 @Injectable({
@@ -14,6 +14,8 @@ export class AnalyticsService {
   summary = signal<AnalyticsSummary | null>(null);
   selectedSiteId = signal<string>('all');
   registeredApps = signal<RegisteredApp[]>([]);
+  blockedIps = signal<BlockedIpItem[]>([]);
+  autoIpBlockEnabled = signal<boolean>(true);
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
   toastMessage = signal<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -171,6 +173,69 @@ export class AnalyticsService {
       catchError((err) => {
         if (err.status === 401) this.authService.clearAuth();
         return of({ success: false, error: err.error?.error || 'Failed to import visits' });
+      })
+    );
+  }
+
+  fetchBlockedIps(): Observable<any> {
+    return this.http.get<any>('/api/admin/security/blocked-ips', { headers: this.authService.getAuthHeaders() }).pipe(
+      tap((res) => {
+        if (res && res.success) {
+          this.blockedIps.set(res.blockedIps || []);
+          this.autoIpBlockEnabled.set(res.autoIpBlockEnabled !== false);
+        }
+      }),
+      catchError((err) => {
+        if (err.status === 401) this.authService.clearAuth();
+        return of(null);
+      })
+    );
+  }
+
+  blockIp(ip: string, reason = 'Manual Admin Block', threatCategory = 'Manual Restriction'): Observable<any> {
+    return this.http.post<any>('/api/admin/security/block-ip', { ip, reason, threatCategory }, { headers: this.authService.getAuthHeaders() }).pipe(
+      tap((res) => {
+        if (res && res.success) {
+          this.showToast(res.message || `IP ${ip} blocked!`, 'success');
+          this.fetchBlockedIps().subscribe();
+        }
+      }),
+      catchError((err) => {
+        if (err.status === 401) this.authService.clearAuth();
+        this.showToast(err.error?.error || `Failed to block IP ${ip}`, 'error');
+        return of({ success: false, error: err.error?.error });
+      })
+    );
+  }
+
+  unblockIp(ip: string): Observable<any> {
+    return this.http.post<any>('/api/admin/security/unblock-ip', { ip }, { headers: this.authService.getAuthHeaders() }).pipe(
+      tap((res) => {
+        if (res && res.success) {
+          this.showToast(res.message || `IP ${ip} unblocked!`, 'info');
+          this.fetchBlockedIps().subscribe();
+        }
+      }),
+      catchError((err) => {
+        if (err.status === 401) this.authService.clearAuth();
+        this.showToast(err.error?.error || `Failed to unblock IP ${ip}`, 'error');
+        return of({ success: false, error: err.error?.error });
+      })
+    );
+  }
+
+  toggleAutoIpBlock(enabled: boolean): Observable<any> {
+    return this.http.post<any>('/api/admin/security/toggle-auto-block', { enabled }, { headers: this.authService.getAuthHeaders() }).pipe(
+      tap((res) => {
+        if (res && res.success) {
+          this.autoIpBlockEnabled.set(res.autoIpBlockEnabled);
+          this.showToast(res.message || `Automated IP Threat Blocking updated`, 'info');
+        }
+      }),
+      catchError((err) => {
+        if (err.status === 401) this.authService.clearAuth();
+        this.showToast(err.error?.error || `Failed to update auto block setting`, 'error');
+        return of({ success: false, error: err.error?.error });
       })
     );
   }
