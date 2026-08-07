@@ -76,7 +76,7 @@ const PageVisitSchema = new mongoose.Schema(
     },
     threatType: {
       type: String,
-      enum: ['None', 'Vulnerability Probe', 'Path Traversal', 'DDoS Burst', 'Suspicious Scanner'],
+      enum: ['None', 'Vulnerability Probe', 'Path Traversal', 'DDoS Burst', 'Suspicious Scanner', 'SDK Signature Forgery'],
       default: 'None',
       index: true,
     },
