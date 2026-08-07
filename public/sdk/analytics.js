@@ -37,6 +37,32 @@
     return params;
   }
 
+  function renderBlockedOverlay(ip) {
+    try {
+      var blockedIpStr = ip || 'Your IP';
+      var overlayHtml = 
+        '<div style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:2147483647; background:#0b0f19; color:#f8fafc; font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">' +
+          '<div style="background:#151d30; border:1px solid #2a364f; border-radius:20px; padding:40px 32px; max-width:500px; width:100%; text-align:center; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">' +
+            '<div style="width:64px; height:64px; background:rgba(239, 68, 68, 0.15); color:#ef4444; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:32px; font-weight:bold; margin:0 auto 24px auto;">🚫</div>' +
+            '<h1 style="font-size:1.6rem; font-weight:800; margin:0 0 12px 0; color:#ffffff; letter-spacing:-0.02em;">Access Restricted</h1>' +
+            '<p style="font-size:0.95rem; color:#94a3b8; line-height:1.6; margin:0 0 24px 0;">Your IP address <span style="background:#070a10; padding:6px 12px; border-radius:8px; font-family:monospace; color:#ef4444; font-size:0.9rem; word-break:break-all; border:1px solid rgba(239, 68, 68, 0.3);">' + blockedIpStr + '</span> has been detected and blocked due to policy enforcement or suspicious activity.</p>' +
+            '<div style="background:#0f172a; border:1px dashed #38bdf8; border-radius:12px; padding:20px; margin-top:12px;">' +
+              '<p style="margin:0 0 8px 0; color:#cbd5e1; font-size:0.875rem;">If you believe this is a mistake, send an email to request an unblock:</p>' +
+              '<a href="mailto:unblock@consoleapi.in" style="color:#38bdf8; font-weight:700; text-decoration:none; font-size:1.05rem;">unblock@consoleapi.in</a>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      if (document.body) {
+        document.body.innerHTML = overlayHtml;
+      } else {
+        document.addEventListener('DOMContentLoaded', function () {
+          document.body.innerHTML = overlayHtml;
+        });
+      }
+    } catch (e) {}
+  }
+
   function trackVisit(customPath, customData) {
     var visitPath = customPath || window.location.pathname;
     if (!visitPath || visitPath.indexOf('/api') === 0 || visitPath.indexOf('/admin') === 0) return;
@@ -52,17 +78,20 @@
     var payloadString = JSON.stringify(payload);
 
     try {
-      if (navigator.sendBeacon) {
-        var blob = new Blob([payloadString], { type: 'application/json' });
-        navigator.sendBeacon(configEndpoint, blob);
-      } else {
-        fetch(configEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payloadString,
-          keepalive: true
-        }).catch(function () {});
-      }
+      fetch(configEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payloadString,
+        keepalive: true
+      }).then(function (res) {
+        if (res.status === 403) {
+          res.json().then(function (data) {
+            renderBlockedOverlay(data && data.ip ? data.ip : '');
+          }).catch(function () {
+            renderBlockedOverlay('');
+          });
+        }
+      }).catch(function () {});
     } catch (e) {}
   }
 
