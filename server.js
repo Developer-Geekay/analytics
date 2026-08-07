@@ -79,6 +79,9 @@ async function connectToDatabase() {
 }
 connectToDatabase();
 
+// Periodically re-sync in-memory security cache with MongoDB every 15 seconds (so direct DB edits reflect automatically)
+setInterval(syncSecurityConfigCache, 15000);
+
 app.set('trust proxy', true);
 
 // Static SDK files (always served cleanly so <script> tags on client sites never fail with ORB errors)
