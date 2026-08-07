@@ -81,66 +81,45 @@ connectToDatabase();
 
 app.set('trust proxy', true);
 
+// Static SDK files (always served cleanly so <script> tags on client sites never fail with ORB errors)
+const publicFolder = path.join(__dirname, 'public');
+app.use('/sdk', express.static(path.join(publicFolder, 'sdk')));
+
 // Pre-flight IP Threat Interceptor Middleware
 app.use(async (req, res, next) => {
   const rawIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').split(',')[0].trim();
   const cleanIp = sanitizeIpString(rawIp) || rawIp;
 
-  // Allow admin management API endpoints & login route so administrators are never locked out of settings
-  if (req.path.startsWith('/api/admin') || req.path.startsWith('/login')) {
+  // 1. Admin Portal routes, login, assets, & API management endpoints are always accessible to admins
+  if (
+    req.path.startsWith('/api/admin') ||
+    req.path.startsWith('/login') ||
+    req.path.startsWith('/dashboard') ||
+    req.path.startsWith('/activity') ||
+    req.path.startsWith('/apps') ||
+    req.path.startsWith('/settings') ||
+    req.path.startsWith('/docs') ||
+    req.path === '/'
+  ) {
     return next();
   }
 
-  // Check if IP is in the active blocklist
+  // 2. Check if visitor IP is blocked
   if (cleanIp && activeBlockedIpsCache.has(cleanIp)) {
-    if (req.headers.accept && req.headers.accept.includes('application/json')) {
-      return res.status(403).json({
-        success: false,
-        error: `Your IP has been detected and blocked. Send mail to unblock it on unblock@consoleapi.in`,
-        ip: cleanIp,
-        unblockEmail: 'unblock@consoleapi.in'
-      });
-    }
-
-    return res.status(403).send(`
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Restricted | ConsoleAPI</title>
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0b0f19; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-      .card { background: #151d30; border: 1px solid #2a364f; border-radius: 20px; padding: 40px 32px; max-width: 500px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-      .icon { width: 64px; height: 64px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; margin-bottom: 24px; }
-      h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 12px 0; color: #ffffff; letter-spacing: -0.02em; }
-      p { font-size: 0.95rem; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }
-      .ip-badge { background: #070a10; padding: 6px 12px; border-radius: 8px; font-family: monospace; color: #ef4444; font-size: 0.9rem; word-break: break-all; border: 1px solid rgba(239, 68, 68, 0.3); }
-      .email-box { background: #0f172a; border: 1px dashed #38bdf8; border-radius: 12px; padding: 20px; margin-top: 12px; }
-      .email-link { color: #38bdf8; font-weight: 700; text-decoration: none; font-size: 1.05rem; }
-      .email-link:hover { text-decoration: underline; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <div class="icon">🚫</div>
-      <h1>Access Restricted</h1>
-      <p>Your IP address <span class="ip-badge">${cleanIp}</span> has been detected and blocked due to policy enforcement or suspicious activity.</p>
-      <div class="email-box">
-        <p style="margin-bottom: 8px; color: #cbd5e1; font-size: 0.875rem;">If you believe this is a mistake, send an email to request an unblock:</p>
-        <a href="mailto:unblock@consoleapi.in" class="email-link">unblock@consoleapi.in</a>
-      </div>
-    </div>
-  </body>
-</html>
-    `);
+    // Return 403 JSON for API & visit beacon requests so client SDK renders Access Restricted overlay
+    return res.status(403).json({
+      success: false,
+      blocked: true,
+      error: `Your IP has been detected and blocked. Send mail to unblock it on unblock@consoleapi.in`,
+      ip: cleanIp,
+      unblockEmail: 'unblock@consoleapi.in'
+    });
   }
 
   next();
 });
 
-// Static SDK files (only served if IP is NOT blocked)
-const publicFolder = path.join(__dirname, 'public');
+// Serve remaining static assets
 app.use(express.static(publicFolder));
 
 function detectDeviceType(userAgent = '') {
