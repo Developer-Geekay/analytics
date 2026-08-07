@@ -105,12 +105,10 @@
         body: payloadString,
         keepalive: true
       }).then(function (res) {
-        if (res.status === 403) {
-          res.json().then(function (data) {
-            renderBlockedOverlay(data && data.ip ? data.ip : '');
-          }).catch(function () {
-            renderBlockedOverlay('');
-          });
+        return res.json();
+      }).then(function (data) {
+        if (data && (data.blocked || data.success === false)) {
+          renderBlockedOverlay(data.ip || '');
         }
       }).catch(function () {});
     } catch (e) {}

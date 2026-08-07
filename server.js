@@ -17,21 +17,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/analytics_db';
-const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+// Global CORS Middleware - Ensure cross-origin tracking beacons and SDK scripts always include Access-Control-Allow-Origin: *
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, site-id, x-beacon-signature');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
-// Enable CORS for cross-origin analytics tracking beacons
 app.use(cors({
-  origin: (origin, callback) => {
-    // If no origin (e.g. same-origin, curl, server-to-server) or wildcard configured, reflect request origin
-    if (!origin || CORS_ORIGIN === '*') {
-      return callback(null, origin || '*');
-    }
-    const allowed = CORS_ORIGIN.split(',').map(o => o.trim());
-    if (allowed.includes(origin)) {
-      return callback(null, origin);
-    }
-    return callback(null, false);
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'site-id', 'x-beacon-signature']
@@ -112,8 +113,9 @@ setInterval(syncSecurityConfigCache, 15000);
 
 app.set('trust proxy', true);
 
-// Static SDK files (always served cleanly so <script> tags on client sites never fail with ORB errors)
+// Static Public Asset Server (MUST be mounted TOP of stack so /sdk/analytics.js & public assets are always served cleanly)
 const publicFolder = path.join(__dirname, 'public');
+app.use(express.static(publicFolder));
 app.use('/sdk', express.static(path.join(publicFolder, 'sdk')));
 
 // Pre-flight IP Threat Interceptor Middleware
@@ -121,8 +123,14 @@ app.use(async (req, res, next) => {
   const rawIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').split(',')[0].trim();
   const cleanIp = sanitizeIpString(rawIp) || rawIp;
 
-  // 1. Admin Portal routes, login, assets, & API management endpoints are always accessible to admins
+  // 1. Static SDK JS files, assets, Admin Portal routes, login, & dashboard SPA routes are always accessible
   if (
+    req.path.startsWith('/sdk') ||
+    req.path.endsWith('.js') ||
+    req.path.endsWith('.css') ||
+    req.path.endsWith('.ico') ||
+    req.path.endsWith('.svg') ||
+    req.path.endsWith('.png') ||
     req.path.startsWith('/api/admin') ||
     req.path.startsWith('/login') ||
     req.path.startsWith('/dashboard') ||
@@ -135,9 +143,8 @@ app.use(async (req, res, next) => {
     return next();
   }
 
-  // 2. Check if visitor IP is blocked
+  // 2. Check if visitor IP is blocked (applies to public endpoints)
   if (cleanIp && activeBlockedIpsCache.has(cleanIp)) {
-    // Return 403 JSON for API & visit beacon requests so client SDK renders Access Restricted overlay
     return res.status(403).json({
       success: false,
       blocked: true,
@@ -149,9 +156,6 @@ app.use(async (req, res, next) => {
 
   next();
 });
-
-// Serve remaining static assets
-app.use(express.static(publicFolder));
 
 function detectDeviceType(userAgent = '') {
   const ua = userAgent.toLowerCase();
@@ -394,7 +398,7 @@ app.post('/api/analytics/visit', async (req, res) => {
     const cleanIp = sanitizeIpString(rawIp) || rawIp;
 
     if (cleanIp && activeBlockedIpsCache.has(cleanIp)) {
-      return res.status(403).json({
+      return res.json({
         success: false,
         blocked: true,
         error: `Your IP has been detected and blocked. Send mail to unblock it on unblock@consoleapi.in`,
