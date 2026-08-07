@@ -362,13 +362,23 @@ async function recordVisit(data) {
 // 1. Ingestion Endpoint (Public Tracking Beacon - No Auth Required)
 app.post('/api/analytics/visit', async (req, res) => {
   try {
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const ip = Array.isArray(clientIp) ? clientIp[0] : clientIp;
+    const rawIp = req.body.ip || (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    const cleanIp = sanitizeIpString(rawIp) || rawIp;
+
+    if (cleanIp && activeBlockedIpsCache.has(cleanIp)) {
+      return res.status(403).json({
+        success: false,
+        blocked: true,
+        error: `Your IP has been detected and blocked. Send mail to unblock it on unblock@consoleapi.in`,
+        ip: cleanIp,
+        unblockEmail: 'unblock@consoleapi.in'
+      });
+    }
 
     await recordVisit({
       ...req.body,
-      userAgent: req.headers['user-agent'] || '',
-      ip,
+      userAgent: req.body.userAgent || req.headers['user-agent'] || '',
+      ip: cleanIp,
     });
 
     return res.json({ success: true });
