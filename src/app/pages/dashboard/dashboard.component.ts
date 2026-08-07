@@ -953,153 +953,127 @@ export function trackPageView(path = window.location.pathname, customData = {}) 
 
   getReactSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+    return `// components/AnalyticsTracker.tsx (React & React Router)
+import { useEffect } from 'react';
 
-export function useAnalytics() {
-  const location = useLocation();
-
+export function AnalyticsTracker() {
   useEffect(() => {
-    fetch('${baseUrl}/api/analytics/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        siteId: '${siteId}',
-        path: location.pathname + location.search,
-        fullUrl: window.location.href,
-        referrer: document.referrer
-      }),
-      keepalive: true
-    }).catch(console.error);
-  }, [location]);
+    if (!document.getElementById('consoleapi-analytics-sdk')) {
+      const script = document.createElement('script');
+      script.id = 'consoleapi-analytics-sdk';
+      script.src = '${baseUrl}/sdk/analytics.js';
+      script.setAttribute('data-site-id', '${siteId}');
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  return null;
 }`;
   }
 
   getNextjsSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `// components/AnalyticsScript.tsx (Next.js 13+ App Router)
-'use client';
+    return `// app/layout.tsx (Next.js 13+ App Router)
 import Script from 'next/script';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
 
-export default function AnalyticsScript() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).AnalyticsSDK) {
-      (window as any).AnalyticsSDK.trackVisit(pathname + (searchParams?.toString() ? '?' + searchParams.toString() : ''));
-    }
-  }, [pathname, searchParams]);
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Script
-      src="${baseUrl}/sdk/analytics.js"
-      data-site-id="${siteId}"
-      data-host="${baseUrl}"
-      strategy="afterInteractive"
-    />
+    <html lang="en">
+      <head>
+        <Script
+          src="${baseUrl}/sdk/analytics.js"
+          data-site-id="${siteId}"
+          strategy="afterInteractive"
+        />
+      </head>
+      <body>{children}</body>
+    </html>
   );
 }`;
   }
 
   getAngularSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `import { Injectable, inject } from '@angular/core';
-import { Router, NavigationEnd } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { filter } from 'rxjs';
+    return `// app.component.ts (Angular 14+)
+import { Component, OnInit, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 
-@Injectable({ providedIn: 'root' })
-export class AnalyticsTrackingService {
-  private router = inject(Router);
-  private http = inject(HttpClient);
+@Component({
+  selector: 'app-root',
+  template: \`<router-outlet></router-outlet>\`
+})
+export class AppComponent implements OnInit {
+  private document = inject(DOCUMENT);
 
-  init(): void {
-    this.router.events.pipe(
-      filter(e => e instanceof NavigationEnd)
-    ).subscribe((event: any) => {
-      this.http.post('${baseUrl}/api/analytics/visit', {
-        siteId: '${siteId}',
-        path: event.urlAfterRedirects,
-        fullUrl: window.location.href,
-        referrer: document.referrer
-      }).subscribe();
-    });
+  ngOnInit(): void {
+    if (!this.document.getElementById('consoleapi-analytics-sdk')) {
+      const script = this.document.createElement('script');
+      script.id = 'consoleapi-analytics-sdk';
+      script.src = '${baseUrl}/sdk/analytics.js';
+      script.setAttribute('data-site-id', '${siteId}');
+      script.async = true;
+      this.document.head.appendChild(script);
+    }
   }
 }`;
   }
 
   getVueSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `// router/index.js or main.js (Vue 3 / Nuxt 3)
-import { useRouter } from 'vue-router';
-
-export function setupAnalytics(router) {
-  router.afterEach((to) => {
-    fetch('${baseUrl}/api/analytics/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        siteId: '${siteId}',
-        path: to.fullPath,
-        fullUrl: window.location.origin + to.fullPath,
-        referrer: document.referrer
-      }),
-      keepalive: true
-    }).catch(() => {});
-  });
-}`;
+    return `// nuxt.config.ts (Vue 3 / Nuxt 3)
+export default defineNuxtConfig({
+  app: {
+    head: {
+      script: [
+        {
+          src: '${baseUrl}/sdk/analytics.js',
+          'data-site-id': '${siteId}',
+          async: true
+        }
+      ]
+    }
+  }
+});`;
   }
 
   getSvelteSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `<!-- +layout.svelte (SvelteKit) -->
-<script>
-  import { page } from '$app/stores';
-  import { browser } from '$app/environment';
-
-  $: if (browser && $page.url) {
-    fetch('${baseUrl}/api/analytics/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        siteId: '${siteId}',
-        path: $page.url.pathname + $page.url.search,
-        fullUrl: $page.url.href,
-        referrer: document.referrer
-      }),
-      keepalive: true
-    }).catch(() => {});
-  }
-</script>`;
+    return `<!-- src/app.html or +layout.svelte (SvelteKit) -->
+<svelte:head>
+  <script src="${baseUrl}/sdk/analytics.js" data-site-id="${siteId}" async></script>
+</svelte:head>`;
   }
 
   getNodeSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
     const baseUrl = this.getBaseUrl();
-    return `// Express.js Server Middleware (Node.js)
-const analyticsMiddleware = (req, res, next) => {
-  if (!req.path.startsWith('/api') && !req.path.startsWith('/static')) {
-    fetch('${baseUrl}/api/analytics/visit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': req.headers['user-agent'] || '',
-        'X-Forwarded-For': req.ip
-      },
-      body: JSON.stringify({
-        siteId: '${siteId}',
-        path: req.originalUrl || req.path,
-        fullUrl: \`\${req.protocol}://\${req.get('host')}\${req.originalUrl}\`,
-        referrer: req.headers['referer'] || ''
-      })
-    }).catch(err => console.error('Analytics record error:', err));
-  }
-  next();
-};
+    return `// Express.js Server-Side Proxy / Relay Middleware
+const axios = require('axios');
 
-app.use(analyticsMiddleware);`;
+app.post('/api/analytics-proxy', async (req, res) => {
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  try {
+    const response = await axios.post('${baseUrl}/api/analytics/visit', {
+      siteId: '${siteId}',
+      path: req.body.path || req.path,
+      fullUrl: req.body.fullUrl,
+      ip: clientIp,
+      userAgent: req.headers['user-agent']
+    }, {
+      headers: {
+        'X-Forwarded-For': clientIp,
+        'X-Beacon-Signature': req.headers['x-beacon-signature'] || ''
+      }
+    });
+
+    res.json(response.data);
+  } catch (err) {
+    if (err.response && err.response.status === 403) {
+      return res.status(403).json(err.response.data);
+    }
+    res.status(500).json({ error: 'Analytics relay error' });
+  }
+});`;
   }
 
   getPythonSnippet(siteId = 'YOUR_APP_TENANT_ID'): string {
