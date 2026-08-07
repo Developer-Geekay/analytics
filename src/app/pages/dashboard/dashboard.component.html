@@ -1255,37 +1255,31 @@
             <mat-form-field appearance="outline" style="width: 100%;">
               <mat-label>Documentation Topic</mat-label>
               <mat-select [ngModel]="docsSection()" (ngModelChange)="docsSection.set($event)">
-                <mat-optgroup label="GETTING STARTED">
+                <mat-optgroup label="CLIENT APP INTEGRATION (PUBLIC)">
                   <mat-option value="quickstart">HTML Quick Start</mat-option>
                   <mat-option value="download-sdk">Download SDK JS</mat-option>
                   <mat-option value="sdk-config">SDK Config & API</mat-option>
-                </mat-optgroup>
-                <mat-optgroup label="FRAMEWORKS & LIBRARIES">
                   <mat-option value="react">React & React Router</mat-option>
                   <mat-option value="nextjs">Next.js (App Router)</mat-option>
                   <mat-option value="angular">Angular Service</mat-option>
                   <mat-option value="vue">Vue 3 / Nuxt</mat-option>
                   <mat-option value="svelte">Svelte / SvelteKit</mat-option>
-                  <mat-option value="nodejs">Node.js / Express</mat-option>
-                  <mat-option value="python">Python (Flask/Django)</mat-option>
+                  <mat-option value="nodejs">Node.js Proxy</mat-option>
+                  <mat-option value="python">Python Relay</mat-option>
+                  <mat-option value="api-beacon">POST /api/analytics/visit (Public Ingestion)</mat-option>
                 </mat-optgroup>
-                <mat-optgroup label="REST API REFERENCE">
-                  <mat-option value="api-beacon">POST /visit Beacon</mat-option>
-                  <mat-option value="api-query">GET /analytics</mat-option>
-                  <mat-option value="api-history">GET /history</mat-option>
-                  <mat-option value="api-apps">Tenant Apps API</mat-option>
+                <mat-optgroup label="ADMIN PLATFORM APIS (RESTRICTED 🔒)">
+                  <mat-option value="api-admin-auth">Admin Authentication</mat-option>
+                  <mat-option value="api-query">GET /api/admin/analytics</mat-option>
+                  <mat-option value="api-history">GET /api/admin/history</mat-option>
+                  <mat-option value="api-apps">Tenant Apps Management</mat-option>
+                  <mat-option value="api-security-mgmt">Security & IP Blocking API</mat-option>
                   <mat-option value="api-export-import">Export & Import API</mat-option>
-                  <mat-option value="api-system">System & Clear API</mat-option>
+                  <mat-option value="api-system">System & Clear Logs</mat-option>
                 </mat-optgroup>
-                <mat-optgroup label="FEATURES & SECURITY">
+                <mat-optgroup label="SECURITY & THREAT ENGINE">
                   <mat-option value="threat-engine">Threat & Bot Engine</mat-option>
                   <mat-option value="utm-tracking">UTM & Attribution</mat-option>
-                </mat-optgroup>
-                <mat-optgroup label="DEPLOYMENT & HOSTING">
-                  <mat-option value="deploy-docker">Docker & Compose</mat-option>
-                  <mat-option value="deploy-pm2">PM2 & Production</mat-option>
-                  <mat-option value="deploy-nginx">Nginx & SSL Proxy</mat-option>
-                  <mat-option value="env-vars">Environment (.env)</mat-option>
                 </mat-optgroup>
               </mat-select>
             </mat-form-field>
@@ -1297,7 +1291,7 @@
             <aside class="docs-sidebar-card desktop-docs-sidebar">
 
               <div class="docs-sidebar-group">
-                <div class="docs-sidebar-header">GETTING STARTED</div>
+                <div class="docs-sidebar-header" style="color: #38bdf8; font-weight: 800;">CLIENT INTEGRATION (PUBLIC)</div>
                 <div class="docs-sidebar-nav">
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'quickstart'" (click)="docsSection.set('quickstart')">
                     <mat-icon>play_circle</mat-icon> HTML Quick Start
@@ -1308,11 +1302,14 @@
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'sdk-config'" (click)="docsSection.set('sdk-config')">
                     <mat-icon>settings_suggest</mat-icon> SDK Config & API
                   </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-beacon'" (click)="docsSection.set('api-beacon')">
+                    <mat-icon>send</mat-icon> POST /visit Beacon
+                  </div>
                 </div>
               </div>
 
               <div class="docs-sidebar-group">
-                <div class="docs-sidebar-header">FRAMEWORKS & LIBRARIES</div>
+                <div class="docs-sidebar-header">CLIENT FRAMEWORKS</div>
                 <div class="docs-sidebar-nav">
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'react'" (click)="docsSection.set('react')">
                     <mat-icon>code</mat-icon> React & React Router
@@ -1330,34 +1327,37 @@
                     <mat-icon>auto_awesome</mat-icon> Svelte / SvelteKit
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'nodejs'" (click)="docsSection.set('nodejs')">
-                    <mat-icon>terminal</mat-icon> Node.js / Express
+                    <mat-icon>terminal</mat-icon> Node.js Proxy
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'python'" (click)="docsSection.set('python')">
-                    <mat-icon>memory</mat-icon> Python (Flask/Django)
+                    <mat-icon>memory</mat-icon> Python Relay
                   </div>
                 </div>
               </div>
 
-              <div class="docs-sidebar-group">
-                <div class="docs-sidebar-header">REST API REFERENCE</div>
+              <div class="docs-sidebar-group" style="background: rgba(239, 68, 68, 0.05); padding: 8px; border-radius: 12px; border: 1px dashed rgba(239, 68, 68, 0.2); margin: 12px 0;">
+                <div class="docs-sidebar-header" style="color: #ef4444; font-weight: 800;">ADMIN PLATFORM APIS 🔒</div>
                 <div class="docs-sidebar-nav">
-                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-beacon'" (click)="docsSection.set('api-beacon')">
-                    <mat-icon>send</mat-icon> POST /visit Beacon
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-admin-auth'" (click)="docsSection.set('api-admin-auth')">
+                    <mat-icon>lock</mat-icon> Admin Login & Auth
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-query'" (click)="docsSection.set('api-query')">
-                    <mat-icon>analytics</mat-icon> GET /analytics
+                    <mat-icon>analytics</mat-icon> GET /admin/analytics
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-history'" (click)="docsSection.set('api-history')">
-                    <mat-icon>history</mat-icon> GET /history
+                    <mat-icon>history</mat-icon> GET /admin/history
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-apps'" (click)="docsSection.set('api-apps')">
                     <mat-icon>apps</mat-icon> Tenant Apps API
+                  </div>
+                  <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-security-mgmt'" (click)="docsSection.set('api-security-mgmt')">
+                    <mat-icon>admin_panel_settings</mat-icon> Security & IP Block API
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-export-import'" (click)="docsSection.set('api-export-import')">
                     <mat-icon>sync</mat-icon> Export & Import API
                   </div>
                   <div class="docs-sidebar-item" [class.active]="docsSection() === 'api-system'" (click)="docsSection.set('api-system')">
-                    <mat-icon>dns</mat-icon> System & Clear API
+                    <mat-icon>dns</mat-icon> System & Clear Logs
                   </div>
                 </div>
               </div>
@@ -1789,9 +1789,11 @@
                     <p class="docs-article-lead">Query aggregated traffic metrics, top pages, referrer sources, device breakdowns, threat levels, and UTM campaigns.</p>
                   </header>
 
-                  <div class="docs-alert-note">
-                    <mat-icon>lock</mat-icon>
-                    <div><strong>Authentication Required:</strong> Requires session cookie, Basic Auth (<code>admin:admin123</code>), or <code>Authorization: Bearer &lt;AUTH_SECRET&gt;</code>.</div>
+                  <div class="docs-alert-note" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.12);">
+                    <mat-icon style="color: #ef4444;">admin_panel_settings</mat-icon>
+                    <div>
+                      <strong style="color: #ef4444;">PLATFORM ADMINISTRATORS ONLY (🔒 RESTRICTED):</strong> This endpoint is strictly for platform management dashboards. <strong>Do NOT embed or invoke this endpoint inside customer-facing client applications!</strong>
+                    </div>
                   </div>
 
                   <h3 class="overview-card-title mt-6" style="margin-bottom: 12px;">Supported Query Parameters</h3>
@@ -1906,12 +1908,93 @@
                 </article>
               }
 
+              @if (docsSection() === 'api-admin-auth') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">POST /api/admin/login (Admin Auth)</h1>
+                    <p class="docs-article-lead">Authenticate administrator credentials to acquire a secure session cookie or Bearer token.</p>
+                  </header>
+
+                  <div class="docs-alert-note" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.12);">
+                    <mat-icon style="color: #ef4444;">admin_panel_settings</mat-icon>
+                    <div>
+                      <strong style="color: #ef4444;">PLATFORM ADMINISTRATORS ONLY (🔒 RESTRICTED):</strong> This endpoint is strictly for platform administrators managing `analytics.consoleapi.in`. <strong>Client applications must NEVER call admin authentication!</strong>
+                    </div>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Sample Authentication Request</h3>
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard('curl -X POST &quot;http://localhost:3000/api/admin/login&quot; -H &quot;Content-Type: application/json&quot; -d \'&#123;&quot;username&quot;: &quot;admin&quot;, &quot;password&quot;: &quot;admin123&quot;&#125;\'', 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre>curl -X POST "http://localhost:3000/api/admin/login" \
+  -H "Content-Type: application/json" \
+  -d '&#123;"username": "admin", "password": "admin123"&#125;'</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
+              @if (docsSection() === 'api-security-mgmt') {
+                <article>
+                  <header class="docs-article-header">
+                    <h1 class="docs-article-title">Admin Security & IP Blocking REST APIs</h1>
+                    <p class="docs-article-lead">Programmatically query blocked IP registries, manually block or unblock IPs, and toggle automated threat protection.</p>
+                  </header>
+
+                  <div class="docs-alert-note" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.12);">
+                    <mat-icon style="color: #ef4444;">admin_panel_settings</mat-icon>
+                    <div>
+                      <strong style="color: #ef4444;">PLATFORM ADMINISTRATORS ONLY (🔒 RESTRICTED):</strong> Security management APIs require admin authentication. <strong>Do NOT embed these calls inside client applications!</strong>
+                    </div>
+                  </div>
+
+                  <h3 class="overview-card-title mt-6">Sample Security Management Requests</h3>
+                  <div class="code-box-wrapper">
+                    <div class="code-box-header">
+                      <span class="code-lang-label">BASH / CURL</span>
+                      <button mat-button class="code-copy-btn" (click)="copyToClipboard('curl -X GET &quot;http://localhost:3000/api/admin/security/blocked-ips&quot; -H &quot;Authorization: Bearer &lt;TOKEN&gt;&quot;', 'cURL copied!')">
+                        <mat-icon>content_copy</mat-icon> Copy Code
+                      </button>
+                    </div>
+                    <div class="code-box-container">
+                      <pre># 1. Fetch all active blocked IPs
+curl -X GET "http://localhost:3000/api/admin/security/blocked-ips" \
+  -H "Authorization: Bearer &lt;TOKEN&gt;"
+
+# 2. Manually block an IP
+curl -X POST "http://localhost:3000/api/admin/security/block-ip" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;TOKEN&gt;" \
+  -d '&#123;"ip": "198.51.100.99", "reason": "Suspicious bot activity"&#125;'
+
+# 3. Unblock an IP
+curl -X POST "http://localhost:3000/api/admin/security/unblock-ip" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;TOKEN&gt;" \
+  -d '&#123;"ip": "198.51.100.99"&#125;'</pre>
+                    </div>
+                  </div>
+                </article>
+              }
+
               @if (docsSection() === 'api-apps') {
                 <article>
                   <header class="docs-article-header">
                     <h1 class="docs-article-title">Application Tenant Management REST APIs</h1>
                     <p class="docs-article-lead">Programmatically register, manage, and unregister multi-tenant application profiles.</p>
                   </header>
+
+                  <div class="docs-alert-note" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.12);">
+                    <mat-icon style="color: #ef4444;">admin_panel_settings</mat-icon>
+                    <div>
+                      <strong style="color: #ef4444;">PLATFORM ADMINISTRATORS ONLY (🔒 RESTRICTED):</strong> Requires admin authentication.
+                    </div>
+                  </div>
 
                   <div class="code-box-wrapper">
                     <div class="code-box-header">
