@@ -63,16 +63,34 @@
     } catch (e) {}
   }
 
+  function generateBeaconSignature(siteId) {
+    var nonce = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+    var timeWindow = Math.floor(Date.now() / 300000);
+    var secretSalt = 'c0ns0l3ap1_s3cr3t_s4lt_v1_2026';
+    
+    var rawString = (siteId || 'default') + '_' + timeWindow + '_' + nonce + '_' + secretSalt;
+    var hash = 0;
+    for (var i = 0; i < rawString.length; i++) {
+      var char = rawString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    var digest = Math.abs(hash).toString(16);
+    return nonce + '.' + timeWindow + '.' + digest;
+  }
+
   function trackVisit(customPath, customData) {
     var visitPath = customPath || window.location.pathname;
     if (!visitPath || visitPath.indexOf('/api') === 0 || visitPath.indexOf('/admin') === 0) return;
 
     var utms = parseUtmParams();
+    var sig = generateBeaconSignature(configSiteId);
     var payload = Object.assign({
       siteId: configSiteId,
       path: visitPath,
       fullUrl: window.location.href,
       referrer: document.referrer || '',
+      _sig: sig
     }, utms, customData || {});
 
     var payloadString = JSON.stringify(payload);
@@ -80,7 +98,10 @@
     try {
       fetch(configEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Beacon-Signature': sig
+        },
         body: payloadString,
         keepalive: true
       }).then(function (res) {

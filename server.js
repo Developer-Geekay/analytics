@@ -34,9 +34,37 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'site-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'site-id', 'x-beacon-signature']
 }));
 app.options('*', cors());
+
+const SECRET_SDK_SALT = process.env.SDK_SECRET_SALT || 'c0ns0l3ap1_s3cr3t_s4lt_v1_2026';
+
+function verifyBeaconSignature(signatureHeader = '', siteId = 'default') {
+  if (!signatureHeader || typeof signatureHeader !== 'string') return false;
+  
+  const parts = signatureHeader.split('.');
+  if (parts.length !== 3) return false;
+  
+  const [nonce, timeWindowStr, clientDigest] = parts;
+  const timeWindow = parseInt(timeWindowStr, 10);
+  if (isNaN(timeWindow)) return false;
+  
+  const currentWindow = Math.floor(Date.now() / 300000);
+  const validWindows = [currentWindow - 1, currentWindow, currentWindow + 1];
+  if (!validWindows.includes(timeWindow)) return false;
+  
+  const expectedRaw = `${siteId}_${timeWindow}_${nonce}_${SECRET_SDK_SALT}`;
+  let hash = 0;
+  for (let i = 0; i < expectedRaw.length; i++) {
+    const char = expectedRaw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  const expectedDigest = Math.abs(hash).toString(16);
+  
+  return clientDigest === expectedDigest;
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -299,7 +327,7 @@ async function recordVisit(data) {
 
     if (existing) return;
 
-    const analysis = await analyzeRequestTraffic(visitPath, userAgent, cleanIp, new Date(), siteId);
+    const analysis = data.forceThreat || await analyzeRequestTraffic(visitPath, userAgent, cleanIp, new Date(), siteId);
     const deviceType = analysis.trafficCategory === 'Bot' ? 'Bot' : detectDeviceType(userAgent);
     const browser = detectBrowser(userAgent);
     const geo = lookupGeoLocation(cleanIp);
@@ -370,6 +398,51 @@ app.post('/api/analytics/visit', async (req, res) => {
         success: false,
         blocked: true,
         error: `Your IP has been detected and blocked. Send mail to unblock it on unblock@consoleapi.in`,
+        ip: cleanIp,
+        unblockEmail: 'unblock@consoleapi.in'
+      });
+    }
+
+    const signature = req.headers['x-beacon-signature'] || req.body._sig || '';
+    const siteId = req.body.siteId || 'default';
+    const isSigValid = verifyBeaconSignature(signature, siteId);
+
+    if (!isSigValid) {
+      if (isAutoBlockEnabled && cleanIp && cleanIp !== '127.0.0.1' && cleanIp !== '::1') {
+        try {
+          await BlockedIp.updateOne(
+            { ip: cleanIp },
+            {
+              $setOnInsert: {
+                ip: cleanIp,
+                reason: 'SDK Signature Forgery: Missing or forged cryptographic genuinity header',
+                blockedBy: 'system',
+                threatCategory: 'SDK Signature Forgery',
+                status: 'active',
+              }
+            },
+            { upsert: true }
+          );
+          activeBlockedIpsCache.add(cleanIp);
+        } catch (e) {}
+      }
+
+      await recordVisit({
+        ...req.body,
+        userAgent: req.body.userAgent || req.headers['user-agent'] || '',
+        ip: cleanIp,
+        forceThreat: {
+          trafficCategory: 'Threat',
+          threatType: 'SDK Signature Forgery',
+          threatSeverity: 'High',
+          threatReason: 'Forged or missing cryptographic SDK genuinity signature header'
+        }
+      });
+
+      return res.status(403).json({
+        success: false,
+        blocked: true,
+        error: `Your request failed SDK genuinity verification. Send mail to unblock it on unblock@consoleapi.in`,
         ip: cleanIp,
         unblockEmail: 'unblock@consoleapi.in'
       });
