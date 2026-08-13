@@ -887,9 +887,17 @@ app.post('/api/admin/apps', async (req, res) => {
     }
 
     const cleanSiteId = siteId.toLowerCase().trim().replace(/[^a-z0-9-_]/g, '-');
-    const existing = await RegisteredApp.findOne({ siteId: cleanSiteId });
+    const cleanDomain = domain ? domain.toLowerCase().trim() : '';
+
+    const existing = await RegisteredApp.findOne({
+      $or: [
+        { siteId: cleanSiteId },
+        ...(cleanDomain ? [{ domain: cleanDomain }] : [])
+      ]
+    });
 
     if (existing) {
+      existing.siteId = cleanSiteId;
       existing.name = name;
       existing.domain = domain || existing.domain;
       existing.description = description || existing.description;
