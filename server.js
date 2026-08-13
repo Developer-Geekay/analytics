@@ -1089,6 +1089,40 @@ app.get('/api/admin/security/blocked-ips', async (req, res) => {
   }
 });
 
+// Internal Nginx Export API Endpoint for Core Hosting Panel Integration
+app.get('/api/admin/security/export-nginx-blocks', async (req, res) => {
+  try {
+    await connectToDatabase();
+    const activeBlocks = await BlockedIp.find({ status: 'active' }).lean();
+
+    const globalBlockedIps = [];
+    const appScopedBlockedIps = {};
+
+    activeBlocks.forEach(doc => {
+      if (doc.scope === 'app' && doc.targetSiteId) {
+        const siteKey = doc.targetSiteId.toLowerCase().trim();
+        if (!appScopedBlockedIps[siteKey]) {
+          appScopedBlockedIps[siteKey] = [];
+        }
+        appScopedBlockedIps[siteKey].push(doc.ip);
+      } else {
+        globalBlockedIps.push(doc.ip);
+      }
+    });
+
+    return res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      data: {
+        globalBlockedIps,
+        appScopedBlockedIps
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/admin/security/block-ip', async (req, res) => {
   try {
     await connectToDatabase();
